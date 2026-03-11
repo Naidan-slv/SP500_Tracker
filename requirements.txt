@@ -1,0 +1,13 @@
+fastapi==0.135.1
+uvicorn==0.41.0
+sqlalchemy==2.0.48
+alembic==1.18.4
+psycopg2-binary==2.9.11
+python-dotenv==1.1.1
+pandas==2.3.2
+kagglehub==0.3.13
+python-jose==3.5.0
+passlib==1.7.4
+bcrypt==5.0.0
+httpx==0.28.1
+pytest==8.4.2
