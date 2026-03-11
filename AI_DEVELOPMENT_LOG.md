@@ -114,3 +114,63 @@ This session moved the project from planning into a functional backend data laye
 ---
 
 *This log will be updated after each meaningful development session or commit batch.*
+
+---
+
+### Entry 003 — Authentication Module, Comprehensive Testing, and Frontend-Ready Stocks Endpoints
+**Date:** 11 March 2026  
+**Commit(s):** Auth + tests + stocks endpoint iteration
+
+#### What Was Done
+- Implemented full authentication flow with FastAPI routes:
+	- `POST /auth/register`
+	- `POST /auth/verify-email`
+	- `POST /auth/login`
+	- `GET /auth/me` (JWT-protected)
+- Extended `users` model and schema for auth (`password_hash`, `is_email_verified`, `is_active`, `updated_at`)
+- Added `email_verification_tokens` table/model for token lifecycle management
+- Generated and applied Alembic migration for auth schema changes
+- Replaced passlib/bcrypt implementation with PBKDF2-SHA256 using Python stdlib due to bcrypt compatibility issue
+- Added test harness script for end-to-end auth flow (`scripts/test_auth_flow.py`) and validated full flow manually
+- Built full pytest suite structure for project-level reliability:
+	- `tests/auth/` (register, login, verify-email, me)
+	- `tests/ingestion/` (CSV validation and ingestion helpers)
+	- shared fixtures in `tests/conftest.py`
+- Added frontend-oriented stock API endpoints:
+	- `GET /stocks` (discover list with search + pagination)
+	- `GET /stocks/{ticker}/history` (timeframe/date filters + pagination)
+- Added stocks endpoint tests (`tests/stocks/test_stocks_endpoints.py`)
+
+#### What I Asked the AI
+- To implement complete auth endpoints aligned with coursework requirements
+- To include email verification and token validation in the auth design
+- To create a full test directory structure for current and future pipeline stages
+- To design stock endpoints in a way that supports a future interactive frontend (discover page, chart timeframes, pagination)
+- To propose commit grouping and messaging for clean repository history
+
+#### What the AI Produced
+- Auth service layer with email normalization, password hashing/verification, JWT generation/decoding, and verification token workflow
+- FastAPI auth router and protected dependency pattern (`get_current_user`)
+- Alembic migration for auth schema updates
+- Large automated test suite with isolated in-memory SQLite test environment and dependency overrides
+- Stock routes with frontend-ready response contracts (`total`, `limit`, `offset`, `items`) and robust validation
+- Focused test cases for stock discovery/history edge cases (unknown ticker, invalid date range, timeframe + explicit date conflict)
+
+#### My Decisions and Overrides
+- Chose not to integrate real outbound email provider yet (deferred to later phase) and kept token-exposure dev flow for speed
+- Accepted recommendation to prioritize core product endpoints (stocks/discover/portfolio/watchlist) before external provider integrations
+- Chose endpoint response formats optimized for eventual frontend consumption rather than minimal backend-only payloads
+- Approved grouped commits by concern (auth core, migration, tests, docs/support)
+
+#### Reflections
+This phase moved the project from “data backend” to “usable application backend.” Authentication is now functional, tested, and extensible. The additional investment in tests significantly reduced risk while adding new features. Designing stocks endpoints with frontend pagination/filter contracts now should reduce rework when building the UI and chart interactions later.
+
+#### Verified Outcomes
+- Auth flow end-to-end check passed (`register -> verify-email -> login -> /auth/me`)
+- Pytest suite expanded and passing:
+	- Previous total: `61` tests
+	- Current total after stocks endpoints: `70` tests
+	- Result: `70 passed`
+- New stock endpoints available in API:
+	- `GET /stocks`
+	- `GET /stocks/{ticker}/history`
