@@ -222,7 +222,7 @@ def get_stock_history(
 
     if timeframe and (start_date or end_date):
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="Use either timeframe or start_date/end_date filters, not both",
         )
 
@@ -256,7 +256,7 @@ def get_stock_history(
 
     if effective_start_date and effective_end_date and effective_start_date > effective_end_date:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="start_date cannot be after end_date",
         )
 
