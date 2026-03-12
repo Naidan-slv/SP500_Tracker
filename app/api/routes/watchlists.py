@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.api.routes.auth import get_current_user
 from app.database.dependencies import get_db
-from app.database.models import Stock, User, Watchlist, WatchlistItem
+from app.database.models import Stock, StockPrice, User, Watchlist, WatchlistItem
 
 router = APIRouter(prefix="/watchlists", tags=["watchlists"])
 
@@ -211,3 +211,192 @@ def remove_watchlist_item(
     db.delete(item)
     db.commit()
     return MessageResponse(message="Watchlist item removed successfully")
+
+
+# ── Insights ─────────────────────────────────────────────────────────────────
+
+class TickerInsight(BaseModel):
+    ticker: str
+    company_name: str | None
+    latest_close: float | None
+    change_pct_1w: float | None   # % change vs 5 trading days ago
+    change_pct_1m: float | None   # % change vs ~21 trading days ago
+    change_pct_1y: float | None   # % change vs ~252 trading days ago
+    avg_volume_30d: float | None
+    volatility_30d: float | None  # std dev of daily returns over last 30 days
+    weight_pct: float             # this ticker as % of all watchlist tickers (equal-weight)
+
+
+class WatchlistInsightsResponse(BaseModel):
+    watchlist_id: int
+    watchlist_name: str
+    ticker_count: int
+    as_of_date: str              # ISO date of the most recent data used
+    tickers: list[TickerInsight]
+    top_gainer_1w: str | None
+    top_loser_1w: str | None
+    top_gainer_1m: str | None
+    top_loser_1m: str | None
+    highest_volatility: str | None
+    lowest_volatility: str | None
+
+
+def _safe_pct_change(current: float | None, prior: float | None) -> float | None:
+    if current is None or prior is None or prior == 0:
+        return None
+    return round((current - prior) / prior * 100, 4)
+
+
+def _compute_ticker_insight(
+    ticker: str,
+    company_name: str | None,
+    ticker_count: int,
+    db: Session,
+) -> TickerInsight:
+    """Fetch the last 260 trading-day prices for one ticker and compute analytics."""
+    rows = db.execute(
+        select(StockPrice.date, StockPrice.close, StockPrice.volume)
+        .where(StockPrice.ticker == ticker)
+        .order_by(StockPrice.date.desc())
+        .limit(260)
+    ).all()
+
+    if not rows:
+        return TickerInsight(
+            ticker=ticker,
+            company_name=company_name,
+            latest_close=None,
+            change_pct_1w=None,
+            change_pct_1m=None,
+            change_pct_1y=None,
+            avg_volume_30d=None,
+            volatility_30d=None,
+            weight_pct=round(100.0 / ticker_count, 4) if ticker_count else 0.0,
+        )
+
+    closes = [float(r.close) for r in rows]   # index 0 = most recent
+    volumes = [int(r.volume) for r in rows]
+
+    latest_close = closes[0]
+
+    def _close_at(n: int) -> float | None:
+        return closes[n] if len(closes) > n else None
+
+    change_pct_1w = _safe_pct_change(latest_close, _close_at(5))
+    change_pct_1m = _safe_pct_change(latest_close, _close_at(21))
+    change_pct_1y = _safe_pct_change(latest_close, _close_at(252))
+
+    recent_30_volumes = volumes[:30]
+    avg_volume_30d = round(sum(recent_30_volumes) / len(recent_30_volumes), 2) if recent_30_volumes else None
+
+    # Volatility = annualised std dev of daily log-like returns over last 30 days
+    recent_30_closes = closes[:30]
+    volatility_30d: float | None = None
+    if len(recent_30_closes) >= 2:
+        daily_returns = [
+            (recent_30_closes[i] - recent_30_closes[i + 1]) / recent_30_closes[i + 1]
+            for i in range(len(recent_30_closes) - 1)
+            if recent_30_closes[i + 1] != 0
+        ]
+        if len(daily_returns) >= 2:
+            n = len(daily_returns)
+            mean = sum(daily_returns) / n
+            variance = sum((r - mean) ** 2 for r in daily_returns) / (n - 1)
+            std_dev = variance ** 0.5
+            volatility_30d = round(std_dev * (252 ** 0.5) * 100, 4)  # annualised %
+
+    return TickerInsight(
+        ticker=ticker,
+        company_name=company_name,
+        latest_close=round(latest_close, 4),
+        change_pct_1w=change_pct_1w,
+        change_pct_1m=change_pct_1m,
+        change_pct_1y=change_pct_1y,
+        avg_volume_30d=avg_volume_30d,
+        volatility_30d=volatility_30d,
+        weight_pct=round(100.0 / ticker_count, 4) if ticker_count else 0.0,
+    )
+
+
+@router.get("/{watchlist_id}/insights", response_model=WatchlistInsightsResponse)
+def get_watchlist_insights(
+    watchlist_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Return analytics for every ticker in the watchlist:
+    - price change % over 1 week, 1 month, 1 year
+    - 30-day average volume
+    - annualised 30-day volatility
+    - equal-weight portfolio concentration
+    - top gainer/loser and highest/lowest volatility labels
+    """
+    watchlist = _get_user_watchlist_or_404(db, watchlist_id, current_user.id)
+
+    item_rows = db.execute(
+        select(WatchlistItem.ticker)
+        .where(WatchlistItem.watchlist_id == watchlist_id)
+        .order_by(WatchlistItem.added_at.asc())
+    ).scalars().all()
+
+    tickers = list(item_rows)
+
+    if not tickers:
+        return WatchlistInsightsResponse(
+            watchlist_id=watchlist_id,
+            watchlist_name=watchlist.name,
+            ticker_count=0,
+            as_of_date="",
+            tickers=[],
+            top_gainer_1w=None,
+            top_loser_1w=None,
+            top_gainer_1m=None,
+            top_loser_1m=None,
+            highest_volatility=None,
+            lowest_volatility=None,
+        )
+
+    # Resolve company names in one query
+    stock_rows = db.execute(
+        select(Stock.ticker, Stock.company_name).where(Stock.ticker.in_(tickers))
+    ).all()
+    company_map = {row.ticker: row.company_name for row in stock_rows}
+
+    ticker_count = len(tickers)
+    insights = [
+        _compute_ticker_insight(t, company_map.get(t), ticker_count, db)
+        for t in tickers
+    ]
+
+    # Determine as_of_date from the most recent price across all tickers
+    max_date_row = db.scalar(
+        select(func.max(StockPrice.date)).where(StockPrice.ticker.in_(tickers))
+    )
+    as_of_date = max_date_row.isoformat() if max_date_row else ""
+
+    # Summary labels
+    with_1w = [i for i in insights if i.change_pct_1w is not None]
+    with_1m = [i for i in insights if i.change_pct_1m is not None]
+    with_vol = [i for i in insights if i.volatility_30d is not None]
+
+    top_gainer_1w = max(with_1w, key=lambda i: i.change_pct_1w).ticker if with_1w else None  # type: ignore[arg-type]
+    top_loser_1w = min(with_1w, key=lambda i: i.change_pct_1w).ticker if with_1w else None  # type: ignore[arg-type]
+    top_gainer_1m = max(with_1m, key=lambda i: i.change_pct_1m).ticker if with_1m else None  # type: ignore[arg-type]
+    top_loser_1m = min(with_1m, key=lambda i: i.change_pct_1m).ticker if with_1m else None  # type: ignore[arg-type]
+    highest_volatility = max(with_vol, key=lambda i: i.volatility_30d).ticker if with_vol else None  # type: ignore[arg-type]
+    lowest_volatility = min(with_vol, key=lambda i: i.volatility_30d).ticker if with_vol else None  # type: ignore[arg-type]
+
+    return WatchlistInsightsResponse(
+        watchlist_id=watchlist_id,
+        watchlist_name=watchlist.name,
+        ticker_count=ticker_count,
+        as_of_date=as_of_date,
+        tickers=insights,
+        top_gainer_1w=top_gainer_1w,
+        top_loser_1w=top_loser_1w,
+        top_gainer_1m=top_gainer_1m,
+        top_loser_1m=top_loser_1m,
+        highest_volatility=highest_volatility,
+        lowest_volatility=lowest_volatility,
+    )

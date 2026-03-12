@@ -45,6 +45,22 @@ class StockListResponse(BaseModel):
     items: list[StockListItem]
 
 
+class StockDetailResponse(BaseModel):
+    ticker: str
+    company_name: str | None
+    latest_date: date | None
+    latest_close: float | None
+    latest_open: float | None
+    latest_volume: int | None
+    change_pct_1d: float | None   # vs previous trading day
+    change_pct_1w: float | None   # vs ~5 trading days ago
+    change_pct_1m: float | None   # vs ~21 trading days ago
+    change_pct_1y: float | None   # vs ~252 trading days ago
+    week_52_high: float | None
+    week_52_low: float | None
+    avg_volume_30d: float | None
+
+
 class StockPricePoint(BaseModel):
     date: date
     open: float
@@ -69,6 +85,12 @@ class StockHistoryResponse(BaseModel):
 
 def _to_float(value: Decimal) -> float:
     return float(value)
+
+
+def _safe_pct(current: float | None, prior: float | None) -> float | None:
+    if current is None or prior is None or prior == 0:
+        return None
+    return round((current - prior) / prior * 100, 4)
 
 
 @router.get("", response_model=StockListResponse)
@@ -97,6 +119,86 @@ def list_stocks(
         limit=limit,
         offset=offset,
         items=[StockListItem(ticker=row.ticker, company_name=row.company_name) for row in rows],
+    )
+
+
+@router.get("/{ticker}", response_model=StockDetailResponse)
+def get_stock_detail(
+    ticker: str,
+    db: Session = Depends(get_db),
+):
+    """
+    Return a summary card for a single ticker:
+    latest price, 1d/1w/1m/1y % change, 52-week high/low, 30-day avg volume.
+    Uses the last 260 trading-day rows (approx 1 year + buffer).
+    """
+    normalized_ticker = ticker.strip().upper()
+    stock = db.get(Stock, normalized_ticker)
+    if not stock:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Ticker '{normalized_ticker}' was not found",
+        )
+
+    rows = db.execute(
+        select(
+            StockPrice.date,
+            StockPrice.open,
+            StockPrice.close,
+            StockPrice.high,
+            StockPrice.low,
+            StockPrice.volume,
+        )
+        .where(StockPrice.ticker == normalized_ticker)
+        .order_by(StockPrice.date.desc())
+        .limit(260)
+    ).all()
+
+    if not rows:
+        return StockDetailResponse(
+            ticker=normalized_ticker,
+            company_name=stock.company_name,
+            latest_date=None,
+            latest_close=None,
+            latest_open=None,
+            latest_volume=None,
+            change_pct_1d=None,
+            change_pct_1w=None,
+            change_pct_1m=None,
+            change_pct_1y=None,
+            week_52_high=None,
+            week_52_low=None,
+            avg_volume_30d=None,
+        )
+
+    closes = [float(r.close) for r in rows]
+    highs = [float(r.high) for r in rows]
+    lows = [float(r.low) for r in rows]
+    volumes = [int(r.volume) for r in rows]
+
+    latest = rows[0]
+
+    def _at(n: int) -> float | None:
+        return closes[n] if len(closes) > n else None
+
+    recent_252_highs = highs[:252]
+    recent_252_lows = lows[:252]
+    recent_30_volumes = volumes[:30]
+
+    return StockDetailResponse(
+        ticker=normalized_ticker,
+        company_name=stock.company_name,
+        latest_date=latest.date,
+        latest_close=round(closes[0], 4),
+        latest_open=round(float(latest.open), 4),
+        latest_volume=int(latest.volume),
+        change_pct_1d=_safe_pct(closes[0], _at(1)),
+        change_pct_1w=_safe_pct(closes[0], _at(5)),
+        change_pct_1m=_safe_pct(closes[0], _at(21)),
+        change_pct_1y=_safe_pct(closes[0], _at(252)),
+        week_52_high=round(max(recent_252_highs), 4) if recent_252_highs else None,
+        week_52_low=round(min(recent_252_lows), 4) if recent_252_lows else None,
+        avg_volume_30d=round(sum(recent_30_volumes) / len(recent_30_volumes), 2) if recent_30_volumes else None,
     )
 
 
