@@ -1,6 +1,7 @@
 export type StockListItem = {
   ticker: string
   company_name: string | null
+  logo_url: string | null
 }
 
 export type StockListResponse = {
@@ -13,6 +14,7 @@ export type StockListResponse = {
 export type StockDetailResponse = {
   ticker: string
   company_name: string | null
+  logo_url: string | null
   latest_date: string | null
   latest_close: number | null
   latest_open: number | null
@@ -39,6 +41,7 @@ export type StockHistoryPoint = {
 export type StockHistoryResponse = {
   ticker: string
   company_name: string | null
+  logo_url: string | null
   timeframe: string | null
   start_date: string | null
   end_date: string | null
@@ -58,6 +61,7 @@ export type StockNewsItem = {
 export type StockNewsResponse = {
   ticker: string
   company_name: string | null
+  logo_url: string | null
   timeframe: string
   total: number
   limit: number
@@ -78,6 +82,7 @@ export type StockLivePoint = {
 export type StockLiveResponse = {
   ticker: string
   company_name: string | null
+  logo_url: string | null
   range: '1d' | '5d' | '1mo'
   interval: '1m' | '2m' | '5m' | '15m' | '30m' | '60m'
   provider: string

@@ -246,7 +246,26 @@ export function DiscoverPage() {
                   {pagedStocks.map((stock) => (
                     <tr key={stock.ticker}>
                       <td>
-                        <strong>{stock.ticker}</strong>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                          {stock.logo_url && (
+                            <img
+                              src={stock.logo_url}
+                              alt={stock.ticker}
+                              style={{
+                                width: '32px',
+                                height: '32px',
+                                borderRadius: '4px',
+                                objectFit: 'contain',
+                                backgroundColor: '#f0f0f0',
+                              }}
+                              onError={(e) => {
+                                // Fallback if logo fails to load
+                                (e.target as HTMLImageElement).style.display = 'none'
+                              }}
+                            />
+                          )}
+                          <strong>{stock.ticker}</strong>
+                        </div>
                       </td>
                       <td>{getMarketLabel(stock.ticker)}</td>
                       <td>{stock.company_name ?? '—'}</td>

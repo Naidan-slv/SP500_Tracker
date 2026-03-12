@@ -40,6 +40,7 @@ _TIMEFRAME_DAYS = {
 class StockListItem(BaseModel):
     ticker: str
     company_name: str | None
+    logo_url: str | None
 
 
 class StockListResponse(BaseModel):
@@ -52,6 +53,7 @@ class StockListResponse(BaseModel):
 class StockDetailResponse(BaseModel):
     ticker: str
     company_name: str | None
+    logo_url: str | None
     latest_date: date | None
     latest_close: float | None
     latest_open: float | None
@@ -78,6 +80,7 @@ class StockPricePoint(BaseModel):
 class StockHistoryResponse(BaseModel):
     ticker: str
     company_name: str | None
+    logo_url: str | None
     timeframe: Timeframe | None
     start_date: date | None
     end_date: date | None
@@ -97,6 +100,7 @@ class StockNewsItem(BaseModel):
 class StockNewsResponse(BaseModel):
     ticker: str
     company_name: str | None
+    logo_url: str | None
     timeframe: Timeframe
     total: int
     limit: int
@@ -132,6 +136,7 @@ class StockLivePoint(BaseModel):
 class StockLiveResponse(BaseModel):
     ticker: str
     company_name: str | None
+    logo_url: str | None
     range: LiveRange
     interval: LiveInterval
     provider: str
@@ -150,6 +155,31 @@ def _safe_pct(current: float | None, prior: float | None) -> float | None:
     if current is None or prior is None or prior == 0:
         return None
     return round((current - prior) / prior * 100, 4)
+
+
+async def _fetch_company_logo_url(ticker: str) -> str | None:
+    """
+    Fetch company logo URL from Finnhub's free endpoint.
+    Returns a logo URL or None if unavailable.
+    """
+    try:
+        # Finnhub free endpoint - no key required for basic profile data
+        response = httpx.get(
+            f"https://finnhub.io/api/v1/stock/profile2?symbol={ticker}",
+            timeout=5.0,
+        )
+        response.raise_for_status()
+        data = response.json()
+        if isinstance(data, dict) and "logo" in data:
+            logo = data["logo"]
+            if logo and isinstance(logo, str):
+                return logo
+    except Exception:
+        pass
+    
+    # Fallback: construct a generic logo URL using a reliable service
+    # Using clearbit logo service as fallback
+    return f"https://logo.clearbit.com/{ticker.lower().replace('.', '')}.com"
 
 
 def _timeframe_start_datetime(timeframe: Timeframe, now_utc: datetime) -> datetime:
@@ -298,12 +328,12 @@ def list_stocks(
         total=total,
         limit=limit,
         offset=offset,
-        items=[StockListItem(ticker=row.ticker, company_name=row.company_name) for row in rows],
+        items=[StockListItem(ticker=row.ticker, company_name=row.company_name, logo_url=row.logo_url) for row in rows],
     )
 
 
 @router.get("/{ticker}", response_model=StockDetailResponse)
-def get_stock_detail(
+async def get_stock_detail(
     ticker: str,
     db: Session = Depends(get_db),
 ):
@@ -334,10 +364,14 @@ def get_stock_detail(
         .limit(260)
     ).all()
 
+    # Fetch logo URL from external API
+    logo_url = await _fetch_company_logo_url(normalized_ticker)
+
     if not rows:
         return StockDetailResponse(
             ticker=normalized_ticker,
             company_name=stock.company_name,
+            logo_url=logo_url,
             latest_date=None,
             latest_close=None,
             latest_open=None,
@@ -368,6 +402,7 @@ def get_stock_detail(
     return StockDetailResponse(
         ticker=normalized_ticker,
         company_name=stock.company_name,
+        logo_url=logo_url,
         latest_date=latest.date,
         latest_close=round(closes[0], 4),
         latest_open=round(float(latest.open), 4),
@@ -414,6 +449,7 @@ def get_stock_history(
         return StockHistoryResponse(
             ticker=normalized_ticker,
             company_name=stock.company_name,
+            logo_url=stock.logo_url,
             timeframe=timeframe,
             start_date=start_date,
             end_date=end_date,
@@ -454,6 +490,7 @@ def get_stock_history(
     return StockHistoryResponse(
         ticker=normalized_ticker,
         company_name=stock.company_name,
+        logo_url=stock.logo_url,
         timeframe=timeframe,
         start_date=effective_start_date,
         end_date=effective_end_date,
@@ -504,6 +541,7 @@ def get_stock_news(
     return StockNewsResponse(
         ticker=normalized_ticker,
         company_name=stock.company_name,
+        logo_url=stock.logo_url,
         timeframe=timeframe,
         total=len(filtered_items),
         limit=limit,
@@ -539,6 +577,7 @@ def get_stock_live_data(
     return StockLiveResponse(
         ticker=normalized_ticker,
         company_name=stock.company_name,
+        logo_url=stock.logo_url,
         range=data_range,
         interval=interval,
         provider="yahoo_chart",

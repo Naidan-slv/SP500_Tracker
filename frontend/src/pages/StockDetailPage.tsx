@@ -122,9 +122,34 @@ export function StockDetailPage() {
         <>
           <div className="card hero-card">
             <div className="eyebrow">Ticker deep dive</div>
-            <h1 className="hero-title" style={{ fontSize: 'clamp(1.8rem, 3vw, 2.7rem)' }}>
-              {detail.ticker} {detail.company_name ? `— ${detail.company_name}` : ''}
-            </h1>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', marginBottom: '1rem' }}>
+              {detail.logo_url && (
+                <img
+                  src={detail.logo_url}
+                  alt={detail.ticker}
+                  style={{
+                    width: '80px',
+                    height: '80px',
+                    borderRadius: '8px',
+                    objectFit: 'contain',
+                    backgroundColor: '#f5f5f5',
+                  }}
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).style.display = 'none'
+                  }}
+                />
+              )}
+              <div>
+                <h1 className="hero-title" style={{ fontSize: 'clamp(1.8rem, 3vw, 2.7rem)', margin: 0 }}>
+                  {detail.ticker}
+                </h1>
+                {detail.company_name && (
+                  <p style={{ fontSize: '1.1rem', color: '#666', margin: '0.5rem 0 0 0' }}>
+                    {detail.company_name}
+                  </p>
+                )}
+              </div>
+            </div>
             <div className="hero-meta">
               <span className="chip">As of: {detail.latest_date ?? '—'}</span>
               <span className="chip">Latest close: ${formatNumber(detail.latest_close)}</span>
