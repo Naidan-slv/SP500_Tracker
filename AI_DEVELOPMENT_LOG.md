@@ -294,3 +294,50 @@ The insights endpoint is the core "intelligence" value-add of the project — it
 - New endpoints available:
 	- `GET /watchlists/{watchlist_id}/insights`
 	- `GET /stocks/{ticker}`
+
+---
+
+### Entry 006 — Production Deployment to Render
+**Date:** 12 March 2026  
+**Commit(s):** Deploy config and dependency hardening
+
+#### What Was Done
+- Created `render.yaml` service definition for Render web service deployment
+- Split `requirements.txt` into production (`requirements.txt`) and dev (`requirements-dev.txt`), removing `pandas`, `kagglehub`, `passlib`, `bcrypt`, and `pytest` from production build
+- Created `.python-version` pinning Python 3.12 to avoid build failures on Python 3.14 (no pre-built `pydantic-core` wheels available yet for 3.14)
+- Downgraded package versions to known stable wheel-available releases for Python 3.12
+- Fixed `HTTP_422_UNPROCESSABLE_CONTENT` → `HTTP_422_UNPROCESSABLE_ENTITY` for starlette compatibility with the pinned version
+- Diagnosed and fixed Supabase connection string issues: `@` in password encoded as `%40`, and switched from direct connection host (`db.*.supabase.co`) to session pooler host (`aws-1-eu-central-2.pooler.supabase.com`)
+- Pushed all commits to GitHub; Render auto-deployed from `main` branch
+- Verified live API serving real data: `GET /stocks/AAPL` returns live OHLCV analytics from Supabase
+- Updated `README.md` with full endpoint reference table, deployment instructions, and live URL
+
+#### What I Asked the AI
+- How to configure Render deployment for a FastAPI + Supabase project
+- To diagnose the Python 3.14 build failure and fix it with a version pin
+- To fix the Supabase connection string (URL encoding + correct pooler host)
+- To update the README to reflect the full project state for submission
+
+#### What the AI Produced
+- `render.yaml` with service config, start command, and env var definitions
+- Slimmed `requirements.txt` removing dev-only packages
+- `requirements-dev.txt` for local development
+- `.python-version` file pinning to 3.12.8
+- Diagnosis of `pydantic-core` Rust build failure on Python 3.14
+- Fix for starlette version compatibility with `HTTP_422_UNPROCESSABLE_ENTITY`
+- Complete rewritten `README.md` with endpoint tables, stack summary, and deployment guide
+
+#### My Decisions and Overrides
+- Chose to keep Supabase as the production database rather than provision a separate Render PostgreSQL — avoids data migration and keeps the existing 230k rows intact
+- Chose Python 3.12 over 3.11 for longer support window while still having full wheel availability
+- Kept `EXPOSE_VERIFICATION_TOKEN=false` in `render.yaml` for production — tokens must not leak in prod responses
+
+#### Reflections
+Deployment exposed two real-world issues that don't appear in local development: Python version compatibility for compiled packages, and URL encoding requirements for special characters in database credentials. Both are common production gotchas. The AI correctly diagnosed both from error output and proposed fixes without needing manual research.
+
+#### Verified Outcomes
+- Build successful on Render (Python 3.12, all wheels installed cleanly)
+- Live API confirmed: `GET https://sp500-tracker.onrender.com/stocks/AAPL` returns real data
+- All 114 tests still passing locally after dependency version changes
+- Live URL: `https://sp500-tracker.onrender.com`
+- Docs URL: `https://sp500-tracker.onrender.com/docs`
