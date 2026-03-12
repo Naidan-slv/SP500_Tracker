@@ -174,3 +174,69 @@ This phase moved the project from “data backend” to “usable application ba
 - New stock endpoints available in API:
 	- `GET /stocks`
 	- `GET /stocks/{ticker}/history`
+
+---
+
+### Entry 004 — Watchlists + Portfolios CRUD, API Contract Tests, and End-to-End User Journey
+**Date:** 12 March 2026  
+**Commit(s):** Watchlists/portfolios and testing hardening phase
+
+#### What Was Done
+- Implemented full watchlist API routes:
+	- `POST /watchlists`
+	- `GET /watchlists`
+	- `DELETE /watchlists/{watchlist_id}`
+	- `GET /watchlists/{watchlist_id}/items`
+	- `POST /watchlists/{watchlist_id}/items`
+	- `DELETE /watchlists/{watchlist_id}/items/{ticker}`
+- Implemented full portfolio API routes:
+	- `POST /portfolios`
+	- `GET /portfolios`
+	- `DELETE /portfolios/{portfolio_id}`
+	- `GET /portfolios/{portfolio_id}/holdings`
+	- `POST /portfolios/{portfolio_id}/holdings`
+	- `DELETE /portfolios/{portfolio_id}/holdings/{ticker}`
+- Added ownership checks on all user resources so users cannot access or mutate other users’ watchlists/portfolios
+- Added ticker validation (must exist in `stocks`) for watchlist items and portfolio holdings
+- Added duplicate protection for watchlist items and portfolio holdings via conflict handling
+- Added pagination metadata (`total`, `limit`, `offset`) to list responses for frontend-friendly contracts
+- Added API contract tests to lock response shapes for frontend integration
+- Added an end-to-end user journey test covering auth + watchlist + portfolio + stocks flows
+- Improved test fixture stability by preventing redundant rollback warnings in transactional teardown
+
+#### What I Asked the AI
+- To continue with the next backend phase after stocks endpoints
+- To build endpoints in a way that will support an eventual interactive frontend
+- To assess whether further testing was needed and then implement high-impact additional tests
+- To strengthen confidence by adding both contract-level and full user journey coverage
+
+#### What the AI Produced
+- New route modules for watchlists and portfolios with secure, ownership-scoped CRUD patterns
+- Router wiring updates so new endpoints appear in OpenAPI docs immediately
+- Comprehensive test modules:
+	- `tests/watchlists/test_watchlists_endpoints.py`
+	- `tests/portfolios/test_portfolios_endpoints.py`
+	- `tests/contracts/test_api_contracts.py`
+	- `tests/e2e/test_user_journey.py`
+- Frontend contract validation for key endpoints (auth, stocks, watchlists, portfolios)
+- A complete journey test path from registration to chart-ready stock history retrieval
+
+#### My Decisions and Overrides
+- Prioritised core product endpoints (watchlists + portfolios) before adding optional external integrations
+- Chose to invest in API contract and E2E tests now to reduce frontend integration risk later
+- Kept all commits local-first during this phase before deciding when to push
+
+#### Reflections
+This phase established the core user-facing functionality expected in a stock-tracking product. With watchlists and portfolios now implemented and tested, the backend supports real user workflows instead of isolated endpoint demos. The contract and E2E test additions significantly improve confidence for subsequent frontend work and reduce the chance of breaking API shapes during iteration.
+
+#### Verified Outcomes
+- Watchlist endpoint tests: `9 passed`
+- Portfolio endpoint tests: `10 passed`
+- Contract + E2E tests: `7 passed`
+- Full test suite status:
+	- Previous total: `89` tests
+	- Current total: `96` tests
+	- Result: `96 passed`
+- New endpoint groups available:
+	- `watchlists` CRUD + item management
+	- `portfolios` CRUD + holdings management
