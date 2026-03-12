@@ -1,0 +1,7 @@
+# Development and testing dependencies — NOT installed on Render
+-r requirements.txt
+pytest==8.4.2
+pandas==2.3.2
+kagglehub==0.3.13
+passlib==1.7.4
+bcrypt==5.0.0

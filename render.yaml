@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: sp500-tracker-api
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: DATABASE_URL
+        sync: false          # set manually in Render dashboard
+      - key: JWT_SECRET_KEY
+        sync: false          # set manually in Render dashboard
+      - key: JWT_ALGORITHM
+        value: HS256
+      - key: ACCESS_TOKEN_EXPIRE_MINUTES
+        value: "60"
+      - key: EMAIL_VERIFICATION_TOKEN_EXPIRE_HOURS
+        value: "24"
+      - key: EXPOSE_VERIFICATION_TOKEN
+        value: "false"       # disable dev token exposure in production
+      - key: APP_BASE_URL
+        sync: false          # set to your Render service URL after deploy
