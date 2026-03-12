@@ -1,11 +1,20 @@
 import type {
+  HoldingPublic,
   LoginResponse,
   MessageResponse,
+  PortfolioHoldingsResponse,
+  PortfolioListResponse,
+  PortfolioPublic,
   RegisterResponse,
   StockDetailResponse,
   StockHistoryResponse,
   StockListResponse,
   UserPublic,
+  WatchlistInsightsResponse,
+  WatchlistItemsResponse,
+  WatchlistListResponse,
+  WatchlistPublic,
+  WatchlistItem,
 } from './types'
 
 const API_BASE_URL = import.meta.env.DEV
@@ -106,4 +115,108 @@ export async function loginUser(email: string, password: string): Promise<LoginR
 
 export async function fetchMe(token: string): Promise<UserPublic> {
   return request<UserPublic>('/auth/me', { token })
+}
+
+export async function fetchWatchlists(token: string): Promise<WatchlistListResponse> {
+  return request<WatchlistListResponse>('/watchlists?limit=100', { token })
+}
+
+export async function createWatchlist(token: string, name: string): Promise<WatchlistPublic> {
+  return request<WatchlistPublic>('/watchlists', {
+    method: 'POST',
+    token,
+    body: { name },
+  })
+}
+
+export async function deleteWatchlist(token: string, watchlistId: number): Promise<MessageResponse> {
+  return request<MessageResponse>(`/watchlists/${watchlistId}`, {
+    method: 'DELETE',
+    token,
+  })
+}
+
+export async function fetchWatchlistItems(token: string, watchlistId: number): Promise<WatchlistItemsResponse> {
+  return request<WatchlistItemsResponse>(`/watchlists/${watchlistId}/items?limit=200`, { token })
+}
+
+export async function addWatchlistItem(
+  token: string,
+  watchlistId: number,
+  ticker: string,
+): Promise<WatchlistItem> {
+  return request<WatchlistItem>(`/watchlists/${watchlistId}/items`, {
+    method: 'POST',
+    token,
+    body: { ticker },
+  })
+}
+
+export async function removeWatchlistItem(
+  token: string,
+  watchlistId: number,
+  ticker: string,
+): Promise<MessageResponse> {
+  return request<MessageResponse>(`/watchlists/${watchlistId}/items/${encodeURIComponent(ticker)}`, {
+    method: 'DELETE',
+    token,
+  })
+}
+
+export async function fetchWatchlistInsights(
+  token: string,
+  watchlistId: number,
+): Promise<WatchlistInsightsResponse> {
+  return request<WatchlistInsightsResponse>(`/watchlists/${watchlistId}/insights`, { token })
+}
+
+export async function fetchPortfolios(token: string): Promise<PortfolioListResponse> {
+  return request<PortfolioListResponse>('/portfolios?limit=100', { token })
+}
+
+export async function createPortfolio(token: string, name: string): Promise<PortfolioPublic> {
+  return request<PortfolioPublic>('/portfolios', {
+    method: 'POST',
+    token,
+    body: { name },
+  })
+}
+
+export async function deletePortfolio(token: string, portfolioId: number): Promise<MessageResponse> {
+  return request<MessageResponse>(`/portfolios/${portfolioId}`, {
+    method: 'DELETE',
+    token,
+  })
+}
+
+export async function fetchPortfolioHoldings(
+  token: string,
+  portfolioId: number,
+): Promise<PortfolioHoldingsResponse> {
+  return request<PortfolioHoldingsResponse>(`/portfolios/${portfolioId}/holdings?limit=200`, {
+    token,
+  })
+}
+
+export async function addPortfolioHolding(
+  token: string,
+  portfolioId: number,
+  payload: { ticker: string; quantity: number; avg_cost?: number | null },
+): Promise<HoldingPublic> {
+  return request<HoldingPublic>(`/portfolios/${portfolioId}/holdings`, {
+    method: 'POST',
+    token,
+    body: payload,
+  })
+}
+
+export async function removePortfolioHolding(
+  token: string,
+  portfolioId: number,
+  ticker: string,
+): Promise<MessageResponse> {
+  return request<MessageResponse>(`/portfolios/${portfolioId}/holdings/${encodeURIComponent(ticker)}`, {
+    method: 'DELETE',
+    token,
+  })
 }

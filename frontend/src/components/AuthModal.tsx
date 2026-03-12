@@ -71,7 +71,10 @@ export function AuthModal({ open, onClose }: { open: boolean; onClose: () => voi
     <div className="auth-modal-overlay" role="dialog" aria-modal="true">
       <div className="auth-modal card">
         <div className="auth-modal-header">
-          <h3 style={{ margin: 0 }}>Account</h3>
+          <div>
+            <div className="eyebrow" style={{ marginBottom: '0.55rem' }}>Secure session access</div>
+            <h3 style={{ margin: 0 }}>Account</h3>
+          </div>
           <button className="button secondary" type="button" onClick={onClose}>
             Close
           </button>
@@ -139,8 +142,8 @@ export function AuthModal({ open, onClose }: { open: boolean; onClose: () => voi
             </label>
           )}
 
-          {message && <div className="positive">{message}</div>}
-          {error && <div className="negative">{error}</div>}
+          {message && <div className="chip positive">{message}</div>}
+          {error && <div className="chip negative">{error}</div>}
 
           <div style={{ display: 'flex', gap: '0.6rem' }}>
             {activeTab === 'login' && (

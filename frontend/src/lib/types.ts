@@ -71,3 +71,86 @@ export type LoginResponse = {
 export type MessageResponse = {
   message: string
 }
+
+export type WatchlistPublic = {
+  id: number
+  name: string
+  created_at: string
+  items_count: number
+}
+
+export type WatchlistListResponse = {
+  total: number
+  limit: number
+  offset: number
+  items: WatchlistPublic[]
+}
+
+export type WatchlistItem = {
+  id: number
+  ticker: string
+  added_at: string
+}
+
+export type WatchlistItemsResponse = {
+  watchlist_id: number
+  total: number
+  limit: number
+  offset: number
+  items: WatchlistItem[]
+}
+
+export type TickerInsight = {
+  ticker: string
+  company_name: string | null
+  latest_close: number | null
+  change_pct_1w: number | null
+  change_pct_1m: number | null
+  change_pct_1y: number | null
+  avg_volume_30d: number | null
+  volatility_30d: number | null
+  weight_pct: number
+}
+
+export type WatchlistInsightsResponse = {
+  watchlist_id: number
+  watchlist_name: string
+  ticker_count: number
+  as_of_date: string
+  tickers: TickerInsight[]
+  top_gainer_1w: string | null
+  top_loser_1w: string | null
+  top_gainer_1m: string | null
+  top_loser_1m: string | null
+  highest_volatility: string | null
+  lowest_volatility: string | null
+}
+
+export type PortfolioPublic = {
+  id: number
+  name: string
+  created_at: string
+  holdings_count: number
+}
+
+export type PortfolioListResponse = {
+  total: number
+  limit: number
+  offset: number
+  items: PortfolioPublic[]
+}
+
+export type HoldingPublic = {
+  id: number
+  ticker: string
+  quantity: number
+  avg_cost: number | null
+}
+
+export type PortfolioHoldingsResponse = {
+  portfolio_id: number
+  total: number
+  limit: number
+  offset: number
+  items: HoldingPublic[]
+}
