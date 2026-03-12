@@ -19,6 +19,10 @@ lib64/
 parts/
 sdist/
 var/
+
+# Frontend source should be tracked
+!frontend/src/lib/
+!frontend/src/lib/**
 wheels/
 share/python-wheels/
 *.egg-info/
