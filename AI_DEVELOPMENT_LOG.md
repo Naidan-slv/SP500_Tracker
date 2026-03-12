@@ -341,3 +341,180 @@ Deployment exposed two real-world issues that don't appear in local development:
 - All 114 tests still passing locally after dependency version changes
 - Live URL: `https://sp500-tracker.onrender.com`
 - Docs URL: `https://sp500-tracker.onrender.com/docs`
+
+---
+
+### Entry 007 — Full Frontend Rewrite with React, TanStack Query, and Product-Grade UI
+**Date:** 12 March 2026  
+**Commit(s):** Frontend full rewrite pushed to `main`
+
+#### What Was Done
+- Bootstrapped a new React 18 + TypeScript + Vite frontend in the `frontend/` directory
+- Set up TanStack Query v5 (`@tanstack/react-query`) as the data-fetching and caching layer across all pages
+- Implemented a Vite dev proxy (`/api → http://127.0.0.1:8000`) so the frontend talks to the local backend in development without CORS issues, and falls back to `VITE_API_BASE_URL` in production
+- Created a full `frontend/src/lib/api.ts` module with typed fetch functions for every backend endpoint (stocks, auth, watchlists, portfolios)
+- Created `frontend/src/lib/types.ts` with TypeScript interfaces matching all Pydantic response schemas
+- Built four full pages:
+  - **DiscoverPage** — browse all stocks with search filtering, market-cap filter pills, and a pagination row; shows a sidebar watchlist preview panel
+  - **StockDetailPage** — ticker stats card (52W high/low, change %, avg vol), price history chart with timeframe selector (1W/1M/3M/1Y/5Y/MAX), loading states
+  - **WatchlistsPage** — full CRUD for watchlists and items, with an embedded insights panel that surfaces top gainers/losers and volatility labels from `GET /watchlists/{id}/insights`
+  - **PortfolioPage** — full CRUD for portfolios and holdings, with a holdings table showing cost basis, current value, and gain/loss
+- Added a persistent `Navbar` with route links and login/logout state
+- Applied a cohesive design system in `frontend/src/index.css`: CSS variables for colours, spacing, and radius; card grid layouts; filter rows; pager rows; responsive breakpoints
+- Wired all routes in `App.tsx` using `react-router-dom` v6
+- Committed and pushed to `main`
+
+#### What I Asked the AI
+- To design and implement the full frontend from scratch using the existing backend API
+- To use TanStack Query for all data fetching to get caching and background refresh for free
+- To produce a product-quality UI rather than a minimal demo
+- To ensure all TypeScript types matched the backend Pydantic contracts exactly
+
+#### What the AI Produced
+- Full `frontend/` directory scaffold including `package.json`, `vite.config.ts`, `tsconfig.json`, `index.html`
+- Complete `api.ts` and `types.ts` libraries
+- All four page components with full query/mutation wiring
+- `Navbar.tsx` component with auth-aware link rendering
+- Global CSS with design tokens, reusable utility classes, and grid layouts
+- `App.tsx` routing setup
+- Vite proxy configuration for seamless local dev
+
+#### My Decisions and Overrides
+- Chose TanStack Query over raw `useEffect` + `fetch` — the automatic cache invalidation and background refetch behaviour was worth the dependency
+- Chose React Router v6 for its cleaner nested route syntax
+- Kept the CSS in a single `index.css` rather than CSS modules — acceptable for a coursework project scope
+
+#### Reflections
+The frontend rewrite was the largest single session of the project. Having a well-defined backend with typed Pydantic responses made the TypeScript contracts straightforward to mirror. TanStack Query removed a large class of loading/error state bugs that would have appeared with manual `useEffect` fetching. The AI accelerated the boilerplate heavily; my main contribution was reviewing each page's UX flow and deciding which data to surface prominently.
+
+#### Verified Outcomes
+- `npm run build` passed cleanly (no TypeScript errors, no missing imports)
+- All four pages rendering correctly against live backend at `https://sp500-tracker.onrender.com`
+- Frontend committed and pushed to `main`
+- Dev server running at `http://127.0.0.1:5174`
+
+---
+
+### Entry 008 — Performance Optimisation: Lazy Chunks, Placeholder Data, and Hover Prefetch
+**Date:** 12 March 2026  
+**Commit(s):** Perf optimisation pass on frontend
+
+#### What Was Done
+- Diagnosed two UX issues reported during manual testing:
+  1. Switching chart timeframes caused the entire `StockDetailPage` to go blank and re-render — the whole page was treated as loading
+  2. The Discover page felt slow on first visit because all stocks loaded in one large request before the UI appeared
+- Fixed issue 1 by adding `placeholderData: (previous) => previous` to the `historyQuery` — React Query now keeps the previous timeframe's data visible while the new fetch completes; only an inline "Updating…" chip shows, not a full-page spinner
+- Fixed issue 2 by extracting the Recharts library into a separate lazy-loaded component (`frontend/src/components/StockHistoryChart.tsx`) using `React.lazy` + `Suspense` — this splits ~372 KB of Recharts out of the initial bundle; the chart loads in its own async chunk only when the stock detail page is first visited
+- Added `staleTime: 10 minutes` and `gcTime: 30 minutes` to the stocks universe query on `DiscoverPage` — the full ticker list is fetched once and reused across navigations without re-fetching
+- Added a `prefetchStock(ticker)` hover handler on `DiscoverPage` stock rows that triggers `React.lazy` preloading of `StockDetailPage` and fires `queryClient.prefetchQuery` for detail + history data — by the time the user clicks, the data is already in cache
+- Converted all four routes in `App.tsx` to `React.lazy` imports wrapped in `<Suspense>` with a `<RouteFallback />` skeleton — each page is now a separate JS chunk loaded only when first navigated to
+- Fixed an import path bug in `App.tsx`: paths had been written as `../src/pages/...` instead of the correct `./pages/...`
+
+#### What I Asked the AI
+- To diagnose why the graph was causing a full-page reload on timeframe change
+- To explain why the stock list felt slow and propose a fix
+- To implement all performance improvements without changing the visible UX structure
+
+#### What the AI Produced
+- Diagnosis: `historyQuery` had no `placeholderData`, so React Query's `isPending` was `true` during every refetch, triggering the loading overlay
+- Fix: added `placeholderData: (prev) => prev` to `historyQuery` and `liveQuery` and `newsQuery`
+- Created `StockHistoryChart.tsx` as a standalone component containing all Recharts imports
+- Updated `StockDetailPage.tsx` to `React.lazy`-import `StockHistoryChart` and wrap it in `<Suspense>`
+- Updated `App.tsx` with corrected lazy imports and `<Suspense>` boundaries for all routes
+- Added hover prefetch logic to `DiscoverPage.tsx`
+- Added `staleTime`/`gcTime` to the stocks query
+
+#### My Decisions and Overrides
+- Chose to keep `StockHistoryChart` as a separate file rather than inlining the Recharts import, to make the chunk boundary explicit and maintainable
+- Decided `staleTime: 10 minutes` was reasonable since S&P 500 constituent list changes very rarely
+
+#### Reflections
+This pass demonstrated how React Query's `placeholderData` option fundamentally changes the perceived responsiveness of a data-driven page — the user never sees a blank state on subsequent fetches. Splitting Recharts into its own lazy chunk was a significant bundle win (main chunk dropped from ~610 KB to under 30 KB). The hover prefetch is a subtle but effective UX improvement that makes navigation feel instant for engaged users.
+
+#### Verified Outcomes
+- `StockDetailPage` timeframe changes show no page-level loading state — only an inline "Updating…" chip
+- Vite bundle output: `StockDetailPage` chunk 8.36 KB; `StockHistoryChart` chunk ~372 KB (loads async only on stock pages)
+- `npm run build` clean after all changes
+- All 114 backend tests still passing
+
+---
+
+### Entry 009 — Search Autocomplete, News by Timeframe, and Live Market Chart
+**Date:** 12 March 2026  
+**Commit(s):** feat: add live market chart, news by timeframe, and search autocomplete
+
+#### What Was Done
+- **Search autocomplete on DiscoverPage:**
+  - Added a live suggestions dropdown that filters the already-cached stocks universe as the user types — no additional network requests needed because the full ticker list is already in TanStack Query cache
+  - Dropdown shows up to 8 matches (ticker + company name), closes on blur with a 150 ms delay to allow click events to fire first
+  - Clicking a suggestion sets the search input to that ticker and closes the dropdown
+  - Added `.search-box`, `.suggestions-card`, and `.suggestion-item` CSS classes to `index.css`
+
+- **Backend news endpoint (`GET /stocks/{ticker}/news`):**
+  - Added `_fetch_google_news_items()` helper that queries Google News RSS for `{ticker} {company_name} stock` and parses the XML feed using Python's `xml.etree.ElementTree`
+  - Added `_timeframe_start_datetime()` that maps the existing `Timeframe` enum (1W / 1M / 3M / 1Y) to a UTC cutoff datetime for date-range filtering of results
+  - Added `StockNewsItem` (title, url, published_at, source) and `StockNewsResponse` (items, provider_error) Pydantic models
+  - Endpoint returns up to `limit` articles published after the timeframe cutoff; if the RSS fetch fails it returns an empty list with `provider_error` set rather than a 500
+
+- **News panel on StockDetailPage:**
+  - Added a news card below the history chart with a timeframe selector (1W / 1M / 3M / 1Y)
+  - Uses `useQuery` with `queryKey: ['stock-news', ticker, newsTimeframe]` and `placeholderData: (prev) => prev` so changing timeframe doesn't blank the card
+  - Added `.news-list` and `.news-item` CSS classes
+
+- **Backend live endpoint (`GET /stocks/{ticker}/live`):**
+  - Added `_fetch_yahoo_live_points()` helper that calls Yahoo Finance's Chart API (`https://query1.finance.yahoo.com/v8/finance/chart/{ticker}`) — no API key required
+  - Added `LiveRange` (`1d`, `5d`, `1mo`) and `LiveInterval` (`1m`, `2m`, `5m`, `15m`, `30m`, `60m`) enums
+  - Added `StockLivePoint` (timestamp, open, high, low, close, volume) and `StockLiveResponse` (ticker, range, interval, points, provider_error) Pydantic models
+  - Returns 404 if the ticker is not in the local database; returns `provider_error` if Yahoo is unreachable rather than a 500
+
+- **Live intraday chart on StockDetailPage:**
+  - Added a second chart card showing live/intraday price data with a range selector (1D / 5D / 1MO) and an interval selector
+  - Interval options are constrained dynamically based on the selected range (e.g. 1D allows 1m–60m; 1MO only allows 15m–60m) using `useMemo`
+  - A `useEffect` snaps `liveInterval` to the first valid option whenever `liveRange` changes, preventing invalid combinations from reaching the API
+  - `refetchInterval: 60_000` keeps the live chart refreshing every 60 seconds automatically
+
+- **Frontend type and API additions:**
+  - Added `StockNewsItem`, `StockNewsResponse`, `StockLivePoint`, `StockLiveResponse` to `frontend/src/lib/types.ts`
+  - Added `fetchStockNews(ticker, timeframe, limit)` and `fetchStockLive(ticker, range, interval)` to `frontend/src/lib/api.ts`
+
+- **Backend tests:**
+  - Added `TestStockNews` (3 tests): valid response, provider error fallback, unknown ticker 404
+  - Added `TestStockLive` (3 tests): valid response, provider error fallback, unknown ticker 404
+  - All tests use `monkeypatch` to stub the external HTTP calls so tests remain offline and fast
+
+#### What I Asked the AI
+- To add live search suggestions to the search bar that appear as the user types
+- To resolve ticker symbols to full company names in the suggestions and in the news query
+- To find and implement a news source for each stock that respects the timeframe the user has selected
+- To add a live market data feature using a free API and display it in a second chart on the stock detail page
+- To explain how the timeframe filter on news would produce relevant results
+
+#### What the AI Produced
+- `_fetch_google_news_items()` RSS parser using only Python stdlib (no additional dependencies)
+- `_timeframe_start_datetime()` mapping `Timeframe` enum to UTC `datetime` cutoffs
+- `GET /stocks/{ticker}/news` route with error-tolerant fallback
+- `GET /stocks/{ticker}/live` route calling Yahoo Finance Chart API with range/interval parameters
+- All new Pydantic response models
+- Updated `DiscoverPage.tsx` with suggestions state, filtered memo, and dropdown JSX
+- Updated `StockDetailPage.tsx` with news panel, live chart card, interval snapping `useEffect`
+- Updated `types.ts` and `api.ts` with new contracts
+- New test classes `TestStockNews` and `TestStockLive` with monkeypatched HTTP stubs
+- Explanation: news relevance is achieved by (a) including the company name in the RSS search query so results are stock-specific, and (b) filtering by `published_at >= cutoff_datetime` derived from the selected timeframe — users selecting 1W see only articles from the past week
+
+#### My Decisions and Overrides
+- Chose Google News RSS as the news source because it requires no API key, uses Python stdlib XML parsing, and is robust to temporary failures (graceful `provider_error` fallback)
+- Chose Yahoo Finance Chart API for live data because it requires no API key and supports the intraday intervals needed for a live chart
+- Chose not to add semantic keyword relevance scoring to news results at this stage — date-range filtering combined with a ticker/name-specific RSS query is sufficient for the coursework scope
+- Decided the 60-second auto-refresh interval for live data was a good balance between data freshness and API rate limits
+
+#### Reflections
+This session added the two most visible "intelligence" features of the product: live market data and contextual news. Both relied on free external APIs that needed careful error handling so that a temporarily unavailable provider doesn't break the entire page. The news relevance design (timeframe → date cutoff + company-name-scoped query) is simple but effective — it directly ties what news the user sees to the chart window they are looking at. The live chart with auto-refresh and dynamic interval constraints gives the app a real-time feel that elevates it beyond a static data viewer.
+
+#### Verified Outcomes
+- Backend tests: `15 passed in 0.07s` (all `TestStockNews` and `TestStockLive` tests passing)
+- `npm run build` (tsc + vite): clean, no TypeScript errors
+- `StockDetailPage` chunk: 8.36 KB (Recharts isolated in `StockHistoryChart` chunk ~372 KB)
+- Committed and pushed to `main`: `feat: add live market chart, news by timeframe, and search autocomplete`
+- New endpoints available:
+  - `GET /stocks/{ticker}/news?timeframe=1W&limit=10`
+  - `GET /stocks/{ticker}/live?range=1d&interval=5m`
