@@ -1,10 +1,11 @@
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from app.database.models import Stock, StockPrice
+from app.api.routes import stocks as stocks_routes
 
 
 def seed_stock_data(db_session: Session) -> None:
@@ -160,4 +161,140 @@ class TestStockHistory:
 
         assert body["ticker"] == "EMPTY"
         assert body["total"] == 0
+        assert body["items"] == []
+
+
+class TestStockNews:
+    def test_news_unknown_ticker_returns_404(self, client: TestClient):
+        resp = client.get("/stocks/ZZZZ/news")
+        assert resp.status_code == 404
+
+    def test_news_returns_filtered_items_for_timeframe(
+        self,
+        client: TestClient,
+        db_session: Session,
+        monkeypatch,
+    ):
+        seed_stock_data(db_session)
+
+        now = datetime.now(timezone.utc)
+
+        def fake_fetch_google_news_items(ticker: str, company_name: str | None, limit: int):
+            return [
+                stocks_routes.StockNewsItem(
+                    title="Apple launches new AI features",
+                    url="https://example.com/news/apple-ai",
+                    source="Example News",
+                    published_at=now - timedelta(days=2),
+                ),
+                stocks_routes.StockNewsItem(
+                    title="Apple long-term retrospective",
+                    url="https://example.com/news/apple-history",
+                    source="Example News",
+                    published_at=now - timedelta(days=45),
+                ),
+            ], None
+
+        monkeypatch.setattr(stocks_routes, "_fetch_google_news_items", fake_fetch_google_news_items)
+
+        resp = client.get("/stocks/AAPL/news?timeframe=1w&limit=10")
+        assert resp.status_code == 200
+        body = resp.json()
+
+        assert body["ticker"] == "AAPL"
+        assert body["company_name"] == "Apple Inc."
+        assert body["timeframe"] == "1w"
+        assert body["total"] == 1
+        assert len(body["items"]) == 1
+        assert body["items"][0]["title"] == "Apple launches new AI features"
+
+    def test_news_includes_provider_error_when_source_unavailable(
+        self,
+        client: TestClient,
+        db_session: Session,
+        monkeypatch,
+    ):
+        seed_stock_data(db_session)
+
+        def fake_fetch_google_news_items(ticker: str, company_name: str | None, limit: int):
+            return [], "News provider unavailable"
+
+        monkeypatch.setattr(stocks_routes, "_fetch_google_news_items", fake_fetch_google_news_items)
+
+        resp = client.get("/stocks/AAPL/news?timeframe=1m&limit=5")
+        assert resp.status_code == 200
+        body = resp.json()
+
+        assert body["provider"] == "google_news_rss"
+        assert body["provider_error"] == "News provider unavailable"
+        assert body["items"] == []
+
+
+class TestStockLive:
+    def test_live_unknown_ticker_returns_404(self, client: TestClient):
+        resp = client.get("/stocks/ZZZZ/live")
+        assert resp.status_code == 404
+
+    def test_live_returns_intraday_points(
+        self,
+        client: TestClient,
+        db_session: Session,
+        monkeypatch,
+    ):
+        seed_stock_data(db_session)
+
+        def fake_fetch_yahoo_live_points(ticker: str, data_range, interval):
+            return [
+                stocks_routes.StockLivePoint(
+                    timestamp=datetime(2024, 1, 10, 14, 30, tzinfo=timezone.utc),
+                    open=188.2,
+                    high=189.4,
+                    low=187.9,
+                    close=189.1,
+                    volume=120_000,
+                ),
+                stocks_routes.StockLivePoint(
+                    timestamp=datetime(2024, 1, 10, 14, 35, tzinfo=timezone.utc),
+                    open=189.1,
+                    high=189.6,
+                    low=188.9,
+                    close=189.3,
+                    volume=132_000,
+                ),
+            ], None
+
+        monkeypatch.setattr(stocks_routes, "_fetch_yahoo_live_points", fake_fetch_yahoo_live_points)
+
+        resp = client.get("/stocks/AAPL/live?range=1d&interval=5m")
+        assert resp.status_code == 200
+        body = resp.json()
+
+        assert body["ticker"] == "AAPL"
+        assert body["range"] == "1d"
+        assert body["interval"] == "5m"
+        assert body["provider"] == "yahoo_chart"
+        assert body["total"] == 2
+        assert body["latest_close"] == 189.3
+        assert len(body["items"]) == 2
+
+    def test_live_includes_provider_error(
+        self,
+        client: TestClient,
+        db_session: Session,
+        monkeypatch,
+    ):
+        seed_stock_data(db_session)
+
+        def fake_fetch_yahoo_live_points(ticker: str, data_range, interval):
+            return [], "Live market provider unavailable"
+
+        monkeypatch.setattr(stocks_routes, "_fetch_yahoo_live_points", fake_fetch_yahoo_live_points)
+
+        resp = client.get("/stocks/AAPL/live?range=5d&interval=15m")
+        assert resp.status_code == 200
+        body = resp.json()
+
+        assert body["range"] == "5d"
+        assert body["interval"] == "15m"
+        assert body["provider_error"] == "Live market provider unavailable"
         assert body["items"] == []

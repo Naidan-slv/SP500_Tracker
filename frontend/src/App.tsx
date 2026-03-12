@@ -3,10 +3,10 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 
 import { Navbar } from './components/Navbar'
 
-const DiscoverPage = lazy(() => import('../src/pages/DiscoverPage').then((module) => ({ default: module.DiscoverPage })))
-const StockDetailPage = lazy(() => import('../src/pages/StockDetailPage').then((module) => ({ default: module.StockDetailPage })))
-const WatchlistsPage = lazy(() => import('../src/pages/WatchlistsPage').then((module) => ({ default: module.WatchlistsPage })))
-const PortfolioPage = lazy(() => import('../src/pages/PortfolioPage').then((module) => ({ default: module.PortfolioPage })))
+const DiscoverPage = lazy(() => import('./pages/DiscoverPage').then((module) => ({ default: module.DiscoverPage })))
+const StockDetailPage = lazy(() => import('./pages/StockDetailPage').then((module) => ({ default: module.StockDetailPage })))
+const WatchlistsPage = lazy(() => import('./pages/WatchlistsPage').then((module) => ({ default: module.WatchlistsPage })))
+const PortfolioPage = lazy(() => import('./pages/PortfolioPage').then((module) => ({ default: module.PortfolioPage })))
 
 function RouteFallback() {
   return <div className="empty-state">Loading page...</div>

@@ -9,6 +9,8 @@ import type {
   StockDetailResponse,
   StockHistoryResponse,
   StockListResponse,
+  StockLiveResponse,
+  StockNewsResponse,
   UserPublic,
   WatchlistInsightsResponse,
   WatchlistItemsResponse,
@@ -89,6 +91,26 @@ export async function fetchStockHistory(
 ): Promise<StockHistoryResponse> {
   return request<StockHistoryResponse>(
     `/stocks/${encodeURIComponent(ticker)}/history?timeframe=${timeframe}&limit=500`,
+  )
+}
+
+export async function fetchStockNews(
+  ticker: string,
+  timeframe: '1w' | '1m' | '3m' | '6m' | '1y' | '5y' | 'max' = '1w',
+  limit = 12,
+): Promise<StockNewsResponse> {
+  return request<StockNewsResponse>(
+    `/stocks/${encodeURIComponent(ticker)}/news?timeframe=${timeframe}&limit=${limit}`,
+  )
+}
+
+export async function fetchStockLive(
+  ticker: string,
+  dataRange: '1d' | '5d' | '1mo' = '1d',
+  interval: '1m' | '2m' | '5m' | '15m' | '30m' | '60m' = '5m',
+): Promise<StockLiveResponse> {
+  return request<StockLiveResponse>(
+    `/stocks/${encodeURIComponent(ticker)}/live?range=${dataRange}&interval=${interval}`,
   )
 }
 

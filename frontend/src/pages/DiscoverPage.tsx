@@ -23,10 +23,13 @@ export function DiscoverPage() {
   const [searchInput, setSearchInput] = useState('')
   const [activeFilter, setActiveFilter] = useState<MarketFilter>('all')
   const [page, setPage] = useState(1)
+  const [showSuggestions, setShowSuggestions] = useState(false)
 
   const stocksQuery = useQuery({
     queryKey: ['stocks-universe'],
     queryFn: () => fetchStocks('', 100, 0),
+    staleTime: 1000 * 60 * 10,
+    gcTime: 1000 * 60 * 30,
   })
 
   const watchlistsQuery = useQuery({
@@ -56,7 +59,22 @@ export function DiscoverPage() {
 
   const totalPages = Math.max(1, Math.ceil(filteredStocks.length / PAGE_SIZE))
 
+  const suggestions = useMemo(() => {
+    const allStocks = stocksQuery.data?.items ?? []
+    const search = searchInput.trim().toUpperCase()
+    if (!search) return []
+
+    return allStocks
+      .filter((stock) => {
+        const ticker = stock.ticker.toUpperCase()
+        const name = (stock.company_name ?? '').toUpperCase()
+        return ticker.includes(search) || name.includes(search)
+      })
+      .slice(0, 8)
+  }, [searchInput, stocksQuery.data])
+
   function prefetchStock(ticker: string) {
+    void import('./StockDetailPage')
     void queryClient.prefetchQuery({
       queryKey: ['stock-detail', ticker],
       queryFn: () => fetchStockDetail(ticker),
@@ -86,15 +104,48 @@ export function DiscoverPage() {
         </div>
 
         <div className="search-row" style={{ marginTop: '1.2rem' }}>
-          <input
-            className="input"
-            placeholder="Search ticker/company (e.g. AAPL, Microsoft)"
-            value={searchInput}
-            onChange={(event) => {
-              setSearchInput(event.target.value)
-              setPage(1)
-            }}
-          />
+          <div className="search-box">
+            <input
+              className="input"
+              placeholder="Search ticker/company (e.g. AAPL, Microsoft)"
+              value={searchInput}
+              onFocus={() => setShowSuggestions(true)}
+              onBlur={() => {
+                setTimeout(() => setShowSuggestions(false), 150)
+              }}
+              onChange={(event) => {
+                setSearchInput(event.target.value)
+                setPage(1)
+                setShowSuggestions(true)
+              }}
+            />
+
+            {showSuggestions && suggestions.length > 0 && (
+              <div className="suggestions-card">
+                {suggestions.map((stock) => (
+                  <button
+                    key={stock.ticker}
+                    type="button"
+                    className="suggestion-item"
+                    onClick={() => {
+                      setSearchInput(stock.ticker)
+                      setPage(1)
+                      setShowSuggestions(false)
+                    }}
+                  >
+                    <div>
+                      <strong>{stock.ticker}</strong>
+                      <div className="muted" style={{ fontSize: '0.84rem' }}>
+                        {stock.company_name ?? 'Unknown company'}
+                      </div>
+                    </div>
+                    <span className="chip">{getMarketLabel(stock.ticker)}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
           <button
             className="button secondary"
             type="button"
@@ -102,6 +153,7 @@ export function DiscoverPage() {
               setSearchInput('')
               setActiveFilter('all')
               setPage(1)
+              setShowSuggestions(false)
             }}
           >
             Reset

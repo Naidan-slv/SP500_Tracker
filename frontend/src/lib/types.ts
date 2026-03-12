@@ -48,6 +48,46 @@ export type StockHistoryResponse = {
   items: StockHistoryPoint[]
 }
 
+export type StockNewsItem = {
+  title: string
+  url: string
+  source: string | null
+  published_at: string | null
+}
+
+export type StockNewsResponse = {
+  ticker: string
+  company_name: string | null
+  timeframe: string
+  total: number
+  limit: number
+  provider: string
+  provider_error: string | null
+  items: StockNewsItem[]
+}
+
+export type StockLivePoint = {
+  timestamp: string
+  open: number | null
+  high: number | null
+  low: number | null
+  close: number | null
+  volume: number | null
+}
+
+export type StockLiveResponse = {
+  ticker: string
+  company_name: string | null
+  range: '1d' | '5d' | '1mo'
+  interval: '1m' | '2m' | '5m' | '15m' | '30m' | '60m'
+  provider: string
+  provider_error: string | null
+  total: number
+  latest_timestamp: string | null
+  latest_close: number | null
+  items: StockLivePoint[]
+}
+
 export type UserPublic = {
   id: number
   email: string

@@ -1,7 +1,11 @@
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
+from email.utils import parsedate_to_datetime
 from enum import Enum
+from urllib.parse import quote_plus
+from xml.etree import ElementTree
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 from sqlalchemy import func, or_, select
@@ -83,6 +87,61 @@ class StockHistoryResponse(BaseModel):
     items: list[StockPricePoint]
 
 
+class StockNewsItem(BaseModel):
+    title: str
+    url: str
+    source: str | None
+    published_at: datetime | None
+
+
+class StockNewsResponse(BaseModel):
+    ticker: str
+    company_name: str | None
+    timeframe: Timeframe
+    total: int
+    limit: int
+    provider: str
+    provider_error: str | None
+    items: list[StockNewsItem]
+
+
+class LiveRange(str, Enum):
+    one_day = "1d"
+    five_days = "5d"
+    one_month = "1mo"
+
+
+class LiveInterval(str, Enum):
+    one_minute = "1m"
+    two_minutes = "2m"
+    five_minutes = "5m"
+    fifteen_minutes = "15m"
+    thirty_minutes = "30m"
+    sixty_minutes = "60m"
+
+
+class StockLivePoint(BaseModel):
+    timestamp: datetime
+    open: float | None
+    high: float | None
+    low: float | None
+    close: float | None
+    volume: int | None
+
+
+class StockLiveResponse(BaseModel):
+    ticker: str
+    company_name: str | None
+    range: LiveRange
+    interval: LiveInterval
+    provider: str
+    provider_error: str | None
+    total: int
+    latest_timestamp: datetime | None
+    latest_close: float | None
+    items: list[StockLivePoint]
+
+
 def _to_float(value: Decimal) -> float:
     return float(value)
 
@@ -91,6 +150,127 @@ def _safe_pct(current: float | None, prior: float | None) -> float | None:
     if current is None or prior is None or prior == 0:
         return None
     return round((current - prior) / prior * 100, 4)
+
+
+def _timeframe_start_datetime(timeframe: Timeframe, now_utc: datetime) -> datetime:
+    if timeframe == Timeframe.max:
+        return datetime(1970, 1, 1, tzinfo=timezone.utc)
+    return now_utc - timedelta(days=_TIMEFRAME_DAYS[timeframe])
+
+
+def _fetch_google_news_items(
+    ticker: str,
+    company_name: str | None,
+    limit: int,
+) -> tuple[list[StockNewsItem], str | None]:
+    query_terms = [ticker]
+    if company_name:
+        query_terms.append(company_name)
+    query_terms.append("stock")
+    query = quote_plus(" ".join(query_terms))
+    feed_url = f"https://news.google.com/rss/search?q={query}&hl=en-US&gl=US&ceid=US:en"
+
+    try:
+        response = httpx.get(feed_url, timeout=10.0)
+        response.raise_for_status()
+        root = ElementTree.fromstring(response.text)
+    except Exception as exc:
+        return [], f"News provider unavailable: {exc}"
+
+    items: list[StockNewsItem] = []
+    for node in root.findall(".//item"):
+        if len(items) >= limit:
+            break
+
+        title = (node.findtext("title") or "").strip()
+        link = (node.findtext("link") or "").strip()
+        source = node.findtext("source")
+        pub_date_text = (node.findtext("pubDate") or "").strip()
+
+        published_at: datetime | None = None
+        if pub_date_text:
+            try:
+                parsed = parsedate_to_datetime(pub_date_text)
+                published_at = parsed.astimezone(timezone.utc)
+            except Exception:
+                published_at = None
+
+        if not title or not link:
+            continue
+
+        items.append(
+            StockNewsItem(
+                title=title,
+                url=link,
+                source=source,
+                published_at=published_at,
+            )
+        )
+
+    return items, None
+
+
+def _fetch_yahoo_live_points(
+    ticker: str,
+    data_range: LiveRange,
+    interval: LiveInterval,
+) -> tuple[list[StockLivePoint], str | None]:
+    url = (
+        f"https://query1.finance.yahoo.com/v8/finance/chart/{ticker}"
+        f"?range={data_range.value}&interval={interval.value}&includePrePost=false&events=div%2Csplits"
+    )
+
+    try:
+        response = httpx.get(url, timeout=10.0)
+        response.raise_for_status()
+        payload = response.json()
+    except Exception as exc:
+        return [], f"Live market provider unavailable: {exc}"
+
+    chart = payload.get("chart", {})
+    results = chart.get("result") or []
+    if not results:
+        return [], "Live market provider returned no chart data"
+
+    result = results[0]
+    timestamps = result.get("timestamp") or []
+    quote_entries = ((result.get("indicators") or {}).get("quote") or [])
+    quote = quote_entries[0] if quote_entries else {}
+
+    opens = quote.get("open") or []
+    highs = quote.get("high") or []
+    lows = quote.get("low") or []
+    closes = quote.get("close") or []
+    volumes = quote.get("volume") or []
+
+    items: list[StockLivePoint] = []
+    for idx, ts in enumerate(timestamps):
+        try:
+            timestamp = datetime.fromtimestamp(int(ts), tz=timezone.utc)
+        except Exception:
+            continue
+
+        open_value = opens[idx] if idx < len(opens) else None
+        high_value = highs[idx] if idx < len(highs) else None
+        low_value = lows[idx] if idx < len(lows) else None
+        close_value = closes[idx] if idx < len(closes) else None
+        volume_value = volumes[idx] if idx < len(volumes) else None
+
+        if close_value is None:
+            continue
+
+        items.append(
+            StockLivePoint(
+                timestamp=timestamp,
+                open=float(open_value) if open_value is not None else None,
+                high=float(high_value) if high_value is not None else None,
+                low=float(low_value) if low_value is not None else None,
+                close=float(close_value) if close_value is not None else None,
+                volume=int(volume_value) if volume_value is not None else None,
+            )
+        )
+
+    return items, None
 
 
 @router.get("", response_model=StockListResponse)
@@ -292,4 +472,79 @@ def get_stock_history(
             )
             for row in rows
         ],
+    )
+
+
+@router.get("/{ticker}/news", response_model=StockNewsResponse)
+def get_stock_news(
+    ticker: str,
+    timeframe: Timeframe = Query(default=Timeframe.one_week),
+    limit: int = Query(default=20, ge=1, le=100),
+    db: Session = Depends(get_db),
+):
+    normalized_ticker = ticker.strip().upper()
+    stock = db.get(Stock, normalized_ticker)
+    if not stock:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Ticker '{normalized_ticker}' was not found",
+        )
+
+    raw_items, provider_error = _fetch_google_news_items(
+        ticker=normalized_ticker,
+        company_name=stock.company_name,
+        limit=max(limit * 3, 30),
+    )
+
+    since = _timeframe_start_datetime(timeframe, datetime.now(timezone.utc))
+    filtered_items = [
+        item for item in raw_items if item.published_at is not None and item.published_at >= since
+    ][:limit]
+
+    return StockNewsResponse(
+        ticker=normalized_ticker,
+        company_name=stock.company_name,
+        timeframe=timeframe,
+        total=len(filtered_items),
+        limit=limit,
+        provider="google_news_rss",
+        provider_error=provider_error,
+        items=filtered_items,
+    )
+
+
+@router.get("/{ticker}/live", response_model=StockLiveResponse)
+def get_stock_live_data(
+    ticker: str,
+    data_range: LiveRange = Query(default=LiveRange.one_day, alias="range"),
+    interval: LiveInterval = Query(default=LiveInterval.five_minutes),
+    db: Session = Depends(get_db),
+):
+    normalized_ticker = ticker.strip().upper()
+    stock = db.get(Stock, normalized_ticker)
+    if not stock:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Ticker '{normalized_ticker}' was not found",
+        )
+
+    items, provider_error = _fetch_yahoo_live_points(
+        ticker=normalized_ticker,
+        data_range=data_range,
+        interval=interval,
+    )
+
+    latest_item = items[-1] if items else None
+
+    return StockLiveResponse(
+        ticker=normalized_ticker,
+        company_name=stock.company_name,
+        range=data_range,
+        interval=interval,
+        provider="yahoo_chart",
+        provider_error=provider_error,
+        total=len(items),
+        latest_timestamp=latest_item.timestamp if latest_item else None,
+        latest_close=latest_item.close if latest_item else None,
+        items=items,
     )
