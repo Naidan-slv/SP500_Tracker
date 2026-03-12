@@ -240,3 +240,57 @@ This phase established the core user-facing functionality expected in a stock-tr
 - New endpoint groups available:
 	- `watchlists` CRUD + item management
 	- `portfolios` CRUD + holdings management
+
+---
+
+### Entry 005 — Watchlist Insights Analytics and Stock Detail Summary Card
+**Date:** 12 March 2026  
+**Commit(s):** Insights + stock detail phase
+
+#### What Was Done
+- Implemented `GET /watchlists/{watchlist_id}/insights` — a per-ticker analytics endpoint that computes:
+	- Price change % over 1 week, 1 month, and 1 year (using trading-day index lookups at positions 5, 21, 252)
+	- 30-day average volume
+	- Annualised 30-day volatility (std dev of daily returns scaled by √252)
+	- Equal-weight concentration percentage per ticker
+	- Summary labels: top gainer/loser for 1w and 1m, highest/lowest volatility ticker in the watchlist
+- Implemented `GET /stocks/{ticker}` — a single-stock summary card endpoint returning:
+	- Latest close, open, volume, and date
+	- 1-day, 1-week, 1-month, and 1-year % price changes
+	- 52-week high and low (from the trailing 252 trading-day window)
+	- 30-day average volume
+- All analytics computed in pure Python from trailing price rows — no external libraries (pandas-free)
+- Registered `GET /stocks/{ticker}` between the discover list and history endpoints to avoid path-parameter conflicts
+
+#### What I Asked the AI
+- To implement an analytics endpoint that would be useful for a frontend insights/dashboard card
+- To compute volatility, price change, and concentration without pulling in pandas (keep dependencies minimal)
+- To implement a stock detail summary card for individual ticker pages
+- To write tests covering auth guards, ownership, empty states, field presence, and computed value correctness
+
+#### What the AI Produced
+- `GET /watchlists/{watchlist_id}/insights` route with `_compute_ticker_insight()` helper using trailing-window price arrays
+- `WatchlistInsightsResponse` and `TickerInsight` Pydantic models
+- `GET /stocks/{ticker}` route added to `stocks.py` with `StockDetailResponse` model
+- `_safe_pct()` utility shared across both endpoints
+- `tests/insights/test_watchlist_insights.py`: 8 tests
+- `tests/stocks/test_stock_detail.py`: 8 tests
+
+#### My Decisions and Overrides
+- Chose trading-day index lookups (5/21/252) rather than calendar-day timedelta arithmetic — more accurate to real finance practice
+- Chose annualised volatility (×√252) rather than raw std dev so it's interpretable as an annual percentage
+- Kept equal-weight concentration for now (position-sizing-aware weighting would require holding quantities from the portfolio, not the watchlist)
+
+#### Reflections
+The insights endpoint is the core "intelligence" value-add of the project — it transforms raw OHLCV data into something a user can act on. Computing it in pure Python without pandas kept the implementation transparent and dependency-free. The stock detail card rounds out the API surface for a frontend that would show a chart alongside a summary ticker card.
+
+#### Verified Outcomes
+- Insights endpoint tests: `8 passed`
+- Stock detail endpoint tests: `8 passed`
+- Full test suite status:
+	- Previous total: `96` tests
+	- Current total: `114` tests
+	- Result: `114 passed`
+- New endpoints available:
+	- `GET /watchlists/{watchlist_id}/insights`
+	- `GET /stocks/{ticker}`
