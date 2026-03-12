@@ -1,11 +1,11 @@
 # Stock Intelligence API
 
-FastAPI + PostgreSQL backend for COMP3011 Web Services coursework.
+Full-stack stock tracking platform for COMP3011 Web Services coursework.
 
 **Live API:** https://sp500-tracker.onrender.com  
 **Interactive docs:** https://sp500-tracker.onrender.com/docs
 
-> ⚠️ Hosted on Render's free tier — first request after inactivity may take ~30s to cold-start.
+> ⚠️ The backend is hosted on Render's free tier — the first request after inactivity may take ~30s to cold-start.
 
 ---
 
@@ -16,6 +16,21 @@ FastAPI + PostgreSQL backend for COMP3011 Web Services coursework.
 - Watchlist and portfolio CRUD (ownership-scoped)
 - Watchlist analytics: price change %, volatility, concentration
 - Stock summary cards: latest price, 52-week high/low, % changes
+- Stock news feeds filtered by user-selected timeframe
+- Live intraday market chart data with selectable range and interval
+- Full React frontend with Discover, Stock Detail, Watchlists, and Portfolio pages
+- Search autocomplete, cached queries, lazy route loading, and chart chunk-splitting for smoother UX
+
+---
+
+## Frontend Features
+
+- **Discover page:** Search tickers and companies, use market filters, browse paginated results, and jump into stock detail pages
+- **Autocomplete search:** Live dropdown suggestions using cached stock universe data
+- **Stock detail page:** Summary card, historical price chart, live intraday chart, and timeframe-filtered news panel
+- **Watchlists page:** Create/delete watchlists, add/remove tickers, and review insight summaries
+- **Portfolio page:** Create/delete portfolios, manage holdings, and inspect cost basis and gain/loss values
+- **Client performance:** TanStack Query caching, placeholder data for non-blocking refetches, lazy-loaded routes, and `Recharts` isolated into its own async chunk
 
 ---
 
@@ -35,6 +50,8 @@ FastAPI + PostgreSQL backend for COMP3011 Web Services coursework.
 | GET | `/stocks` | — | Discover/search tickers (paginated) |
 | GET | `/stocks/{ticker}` | — | Summary card: price, % changes, 52w high/low |
 | GET | `/stocks/{ticker}/history` | — | OHLCV history (timeframe or date range) |
+| GET | `/stocks/{ticker}/news` | — | News feed filtered by timeframe |
+| GET | `/stocks/{ticker}/live` | — | Live/intraday chart data with range + interval |
 
 ### Watchlists
 | Method | Path | Auth | Description |
@@ -61,6 +78,8 @@ FastAPI + PostgreSQL backend for COMP3011 Web Services coursework.
 
 ## Local Development
 
+### Backend
+
 ```bash
 python -m venv .venv
 source .venv/bin/activate
@@ -81,14 +100,36 @@ uvicorn app.main:app --reload
 
 Open docs at `http://localhost:8000/docs`.
 
+### Frontend
+
+```bash
+cd frontend
+npm install
+npm run dev -- --host 127.0.0.1 --port 5174
+```
+
+The frontend uses Vite and proxies `/api` requests to `http://127.0.0.1:8000` in development.
+
+Create a production build with:
+
+```bash
+cd frontend
+npm run build
+```
+
 ---
 
 ## Tests
 
 ```bash
 pytest tests/
-# 114 tests, ~3 seconds, in-memory SQLite (no network required)
+# 120 tests, in-memory SQLite, no network required
 ```
+
+Latest verified local checks:
+
+- `pytest -q` → `120 passed in 2.76s`
+- `cd frontend && npm run build` → production build succeeded
 
 ---
 
@@ -103,13 +144,20 @@ Configured via `render.yaml`. Set these env vars in the Render dashboard:
 
 All other env vars are defined in `render.yaml` with safe defaults.
 
+For the frontend, set `VITE_API_BASE_URL=https://sp500-tracker.onrender.com` when deploying to a static host such as Vercel or Netlify.
+
 ---
 
 ## Stack
 
-- **FastAPI** — web framework
+- **FastAPI** — backend API framework
 - **SQLAlchemy 2 + Alembic** — ORM and migrations
-- **Supabase PostgreSQL** — hosted database
+- **Supabase PostgreSQL** — hosted relational database
 - **python-jose** — JWT tokens
-- **pytest** — test suite (114 tests)
-- **Render** — deployment platform
+- **httpx** — external provider requests
+- **React 18 + TypeScript + Vite** — frontend client
+- **TanStack Query** — client-side caching and async state management
+- **React Router** — frontend routing
+- **Recharts** — historical and live chart rendering
+- **pytest** — backend test suite (`120` tests)
+- **Render** — backend deployment platform
