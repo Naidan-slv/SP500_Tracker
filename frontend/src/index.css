@@ -100,6 +100,71 @@ a {
   background: #111827;
 }
 
+.button.secondary.active {
+  border-color: #3b82f6;
+  color: #bfdbfe;
+}
+
+.user-pill {
+  border: 1px solid #334155;
+  border-radius: 999px;
+  padding: 0.35rem 0.7rem;
+  font-size: 0.84rem;
+  color: #cbd5e1;
+  background: rgba(2, 6, 23, 0.7);
+}
+
+.auth-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(2, 6, 23, 0.72);
+  backdrop-filter: blur(3px);
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  z-index: 40;
+  animation: fadeIn 0.18s ease-out;
+}
+
+.auth-modal {
+  width: min(520px, 96vw);
+  animation: slideUp 0.2s ease-out;
+}
+
+.auth-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+.auth-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.9rem;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(12px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
 .table-wrap {
   overflow-x: auto;
 }

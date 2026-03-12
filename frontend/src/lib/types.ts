@@ -47,3 +47,27 @@ export type StockHistoryResponse = {
   offset: number
   items: StockHistoryPoint[]
 }
+
+export type UserPublic = {
+  id: number
+  email: string
+  is_email_verified: boolean
+  is_active: boolean
+  created_at: string
+}
+
+export type RegisterResponse = {
+  message: string
+  user_id: number
+  verification_token?: string | null
+}
+
+export type LoginResponse = {
+  access_token: string
+  token_type: string
+  user: UserPublic
+}
+
+export type MessageResponse = {
+  message: string
+}
