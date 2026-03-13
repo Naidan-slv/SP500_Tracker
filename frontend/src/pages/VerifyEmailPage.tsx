@@ -48,8 +48,8 @@ export function VerifyEmailPage() {
   }, [token])
 
   return (
-    <section className="grid" style={{ gap: '1rem' }}>
-      <div className="card" style={{ maxWidth: 720, margin: '0 auto' }}>
+    <section className="grid page-section" style={{ gap: '1rem' }}>
+      <div className="card smooth-enter" style={{ maxWidth: 720, margin: '0 auto' }}>
         <div className="eyebrow">Email Verification</div>
         <h2 style={{ marginTop: '0.4rem' }}>Confirm your account</h2>
         <p className="muted" style={{ marginBottom: '1rem' }}>

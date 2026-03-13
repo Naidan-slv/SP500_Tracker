@@ -135,6 +135,32 @@ select {
   padding: 1.6rem;
 }
 
+.page-section {
+  animation: pageEnter 0.32s ease-out both;
+}
+
+.smooth-enter {
+  animation: revealUp 0.42s ease both;
+}
+
+.stagger-children > * {
+  animation: revealUp 0.42s ease both;
+}
+
+.stagger-children > *:nth-child(1) { animation-delay: 35ms; }
+.stagger-children > *:nth-child(2) { animation-delay: 70ms; }
+.stagger-children > *:nth-child(3) { animation-delay: 105ms; }
+.stagger-children > *:nth-child(4) { animation-delay: 140ms; }
+.stagger-children > *:nth-child(5) { animation-delay: 175ms; }
+.stagger-children > *:nth-child(6) { animation-delay: 210ms; }
+
+.stagger-columns > * {
+  animation: revealUp 0.4s ease both;
+}
+
+.stagger-columns > *:nth-child(1) { animation-delay: 50ms; }
+.stagger-columns > *:nth-child(2) { animation-delay: 110ms; }
+
 .card {
   border: 1px solid var(--color-border);
   border-radius: 22px;
@@ -144,6 +170,7 @@ select {
   backdrop-filter: blur(18px);
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.18);
   padding: 1.15rem;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
 }
 
 .grid {
@@ -304,6 +331,8 @@ select {
   width: min(520px, 96vw);
   padding: 1.35rem;
   animation: slideUp 0.2s ease-out;
+  border-color: rgba(191, 205, 224, 0.22);
+  box-shadow: 0 28px 70px rgba(0, 0, 0, 0.35);
 }
 
 .auth-modal-header {
@@ -318,6 +347,18 @@ select {
   flex-wrap: wrap;
   gap: 0.5rem;
   margin-top: 0.9rem;
+}
+
+.auth-helper-text {
+  color: rgba(254, 252, 253, 0.72);
+  font-size: 0.86rem;
+  line-height: 1.4;
+}
+
+.auth-action-row {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
 }
 
 .search-row {
@@ -363,6 +404,12 @@ select {
 
 .suggestion-item:hover {
   background: rgba(191, 205, 224, 0.08);
+}
+
+.suggestion-subtitle {
+  margin-top: 0.1rem;
+  color: rgba(254, 252, 253, 0.62);
+  font-size: 0.82rem;
 }
 
 .suggestion-item:last-child {
@@ -484,6 +531,17 @@ select {
   to {
     transform: translateY(0);
     opacity: 1;
+  }
+}
+
+@keyframes pageEnter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
@@ -642,6 +700,8 @@ tbody tr:hover {
   display: flex;
   flex-direction: column;
   gap: 0.85rem;
+  position: relative;
+  overflow: hidden;
   padding: 1.1rem;
   border-radius: 18px;
   border: 1px solid rgba(191, 205, 224, 0.1);
@@ -651,6 +711,17 @@ tbody tr:hover {
   text-decoration: none;
   color: inherit;
   cursor: pointer;
+}
+
+.stock-card::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 48%;
+  height: 100%;
+  background: radial-gradient(circle at top right, rgba(191, 205, 224, 0.16), transparent 62%);
+  pointer-events: none;
 }
 
 .stock-card:hover {
@@ -706,11 +777,18 @@ tbody tr:hover {
 
 .stock-name {
   font-size: 0.8rem;
-  color: rgba(254, 252, 253, 0.58);
+  color: rgba(254, 252, 253, 0.66);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 120px;
+  max-width: 180px;
+}
+
+.stock-card-subtitle {
+  font-size: 0.86rem;
+  color: rgba(254, 252, 253, 0.72);
+  line-height: 1.45;
+  max-width: 95%;
 }
 
 .market-badge {
@@ -982,6 +1060,25 @@ tbody tr:hover {
 
   .movers-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-section,
+  .smooth-enter,
+  .stagger-children > *,
+  .stagger-columns > *,
+  .reveal-up {
+    animation: none !important;
+  }
+
+  .card,
+  .button,
+  .stock-card,
+  .news-item,
+  .mover-item,
+  .list-card {
+    transition: none !important;
   }
 }
 

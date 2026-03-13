@@ -25,6 +25,7 @@ class Settings:
     smtp_from_name: str
     smtp_use_tls: bool
     smtp_use_ssl: bool
+    finnhub_api_key: str
 
 
 settings = Settings(
@@ -45,6 +46,7 @@ settings = Settings(
     smtp_from_name=os.getenv("SMTP_FROM_NAME", "SP500 Tracker"),
     smtp_use_tls=os.getenv("SMTP_USE_TLS", "true").lower() == "true",
     smtp_use_ssl=os.getenv("SMTP_USE_SSL", "false").lower() == "true",
+    finnhub_api_key=os.getenv("FINNHUB_API_KEY", ""),
 )
 
 if not settings.database_url:

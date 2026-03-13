@@ -112,8 +112,8 @@ export function PortfolioPage() {
 
   if (!user || !token) {
     return (
-      <section className="grid" style={{ gap: '1rem' }}>
-        <div className="card hero-card">
+      <section className="grid page-section" style={{ gap: '1rem' }}>
+        <div className="card hero-card smooth-enter">
           <div className="eyebrow">Portfolio management</div>
           <h1 className="hero-title">Log in to manage holdings and average costs.</h1>
           <p className="hero-copy">
@@ -126,8 +126,8 @@ export function PortfolioPage() {
   }
 
   return (
-    <section className="grid" style={{ gap: '1rem' }}>
-      <div className="card hero-card">
+    <section className="grid page-section" style={{ gap: '1rem' }}>
+      <div className="card hero-card smooth-enter">
         <div className="eyebrow">Portfolio workspace</div>
         <h1 className="hero-title">Keep holdings organised across investment themes.</h1>
         <p className="hero-copy">
@@ -138,7 +138,7 @@ export function PortfolioPage() {
 
       {pageError && <div className="card negative">{pageError}</div>}
 
-      <div className="dashboard-grid">
+      <div className="dashboard-grid stagger-columns">
         <div className="card sidebar-card">
           <div className="panel-header">
             <div>
@@ -188,7 +188,7 @@ export function PortfolioPage() {
           </div>
         </div>
 
-        <div className="grid" style={{ gap: '1rem' }}>
+        <div className="grid stagger-children" style={{ gap: '1rem' }}>
           <div className="card">
             <div className="panel-header">
               <div>

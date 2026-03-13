@@ -11,6 +11,7 @@ from pydantic import BaseModel
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.database.dependencies import get_db
 from app.database.models import Stock, StockPrice
 
@@ -158,11 +159,14 @@ def _safe_pct(current: float | None, prior: float | None) -> float | None:
 
 
 async def _fetch_company_profile(ticker: str) -> tuple[str | None, str | None]:
+    if not settings.finnhub_api_key:
+        return None, None
+
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
             response = await client.get(
                 "https://finnhub.io/api/v1/stock/profile2",
-                params={"symbol": ticker},
+                params={"symbol": ticker, "token": settings.finnhub_api_key},
             )
         response.raise_for_status()
         data = response.json()
@@ -206,7 +210,7 @@ async def _ensure_stock_profile(stock: Stock, db: Session) -> tuple[str | None, 
         db.commit()
         db.refresh(stock)
 
-    return company_name, logo_url
+    return (company_name or stock.ticker), logo_url
 
 
 def _timeframe_start_datetime(timeframe: Timeframe, now_utc: datetime) -> datetime:

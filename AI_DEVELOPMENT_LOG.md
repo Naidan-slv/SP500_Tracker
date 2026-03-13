@@ -518,3 +518,84 @@ This session added the two most visible "intelligence" features of the product: 
 - New endpoints available:
   - `GET /stocks/{ticker}/news?timeframe=1W&limit=10`
   - `GET /stocks/{ticker}/live?range=1d&interval=5m`
+
+---
+
+### Entry 010 — Email Verification Productionisation, Resend Flow, and Data Quality Fixes
+**Date:** 13 March 2026  
+**Commit(s):** Auth/email verification + provider/data fixes (multi-commit batch)
+
+#### What Was Done
+- Implemented SMTP-backed verification delivery:
+	- Added `app/auth/email.py` for verification link building + mail sending
+	- Extended `app/config.py` with SMTP settings and `FRONTEND_URL`
+	- Updated register flow in `app/api/routes/auth.py` to send real verification emails
+- Added frontend verification UX:
+	- New `frontend/src/pages/VerifyEmailPage.tsx` route (`/verify-email`)
+	- Auth modal updated to surface verification link fallback and clearer verification flow
+- Added resend verification capability:
+	- Added `POST /auth/resend-verification`
+	- Added request schema and service logic for unverified users
+	- Added frontend resend action in auth context/modal
+- Fixed stock company-name quality regressions:
+	- Prevented ingestion from overwriting `stocks.company_name` with `NULL`
+	- Added key-aware profile enrichment guard (`FINNHUB_API_KEY`) and ticker fallback labeling
+	- Updated discover fallback display to avoid generic “Unknown company” card text
+
+#### What I Asked the AI
+- To make email verification production-ready with actual SMTP email delivery
+- To add user-friendly verification and resend flows in both backend and frontend
+- To diagnose why many cards showed unknown company names and apply a root-cause fix
+
+#### What the AI Produced
+- Config and mail utility refactor with environment-driven SMTP behavior
+- New auth endpoint and test suite additions for resend verification
+- Frontend verify page, route integration, and auth modal UX enhancements
+- Ingestion conflict-handling fix and profile enrichment safeguard for keyless environments
+
+#### My Decisions and Overrides
+- Kept token exposure optional (`EXPOSE_VERIFICATION_TOKEN`) for development/testing convenience
+- Preserved graceful fallbacks when provider APIs are unavailable or rate-limited
+- Prioritised robust user flow completion over adding more providers at this stage
+
+#### Verified Outcomes
+- Targeted auth suite (`register`, `verify-email`, `resend`, `login`, `e2e`) passed
+- Full backend suite: `127 passed`
+- Frontend production build passed after all auth/data-quality updates
+
+---
+
+### Entry 011 — Professional UI Motion Pass (Global Transitions + Smooth Interactions)
+**Date:** 13 March 2026  
+**Commit(s):** Frontend visual polish and animation pass
+
+#### What Was Done
+- Introduced shared animation utilities in `frontend/src/index.css`:
+	- `.page-section`, `.smooth-enter`, `.stagger-children`, `.stagger-columns`
+	- Added `@keyframes pageEnter` and reduced-motion accessibility guard
+	- Expanded transition polish on cards and helper UI elements
+- Applied animation classes across core pages:
+	- `DiscoverPage`, `StockDetailPage`, `WatchlistsPage`, `PortfolioPage`, `VerifyEmailPage`
+	- Added staggered entrances for card grids and column layouts
+- Polished micro-interactions and readability:
+	- Better suggestion subtitle styling
+	- Improved stock-card hierarchy and subtitle presentation
+	- Refined auth modal helper text and action-row layout
+
+#### What I Asked the AI
+- To make transitions from the Home page feel consistent across the entire product
+- To keep motion subtle, smooth, and professional (not noisy)
+
+#### What the AI Produced
+- Reusable global animation system aligned with existing home-page reveal patterns
+- Consistent class-level adoption across high-traffic product surfaces
+- Accessible reduced-motion fallback so animation remains user-friendly
+
+#### My Decisions and Overrides
+- Kept animation timings short and subtle to maintain a professional financial-dashboard tone
+- Avoided heavy/parallax effects that could hurt readability or perceived seriousness
+
+#### Verified Outcomes
+- Frontend build completed successfully after animation pass
+- No new TypeScript or diagnostics errors introduced
+- UI now has consistent motion language across key pages

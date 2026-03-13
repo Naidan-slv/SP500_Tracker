@@ -50,10 +50,7 @@ def load_clean_csv(path: Path) -> pd.DataFrame:
 def upsert_stocks(connection, tickers: list[str]) -> int:
     stock_rows = [{"ticker": ticker, "company_name": None} for ticker in tickers]
     stmt = insert(Stock.__table__).values(stock_rows)
-    stmt = stmt.on_conflict_do_update(
-        index_elements=["ticker"],
-        set_={"company_name": stmt.excluded.company_name},
-    )
+    stmt = stmt.on_conflict_do_nothing(index_elements=["ticker"])
     connection.execute(stmt)
     return len(stock_rows)
 

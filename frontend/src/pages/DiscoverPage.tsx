@@ -15,6 +15,14 @@ const filters: Array<{ value: MarketFilter; label: string }> = [
   { value: 'middle-east', label: 'Middle East' },
 ]
 
+function getCompanyLabel(ticker: string, companyName: string | null): string {
+  if (!companyName) {
+    return ticker
+  }
+  const trimmed = companyName.trim()
+  return trimmed || ticker
+}
+
 function StockPreviewCard({
   ticker,
   companyName,
@@ -37,13 +45,13 @@ function StockPreviewCard({
           )}
           <div>
             <div className="stock-ticker">{ticker}</div>
-            <div className="stock-name">{companyName ?? 'Unknown company'}</div>
+            <div className="stock-name">{getCompanyLabel(ticker, companyName)}</div>
           </div>
         </div>
         <span className="market-badge">{getMarketLabel(ticker)}</span>
       </div>
 
-      <div className="muted" style={{ fontSize: '0.86rem' }}>
+      <div className="stock-card-subtitle">
         Open for full analytics, price history, live market activity and news.
       </div>
     </Link>
@@ -123,8 +131,8 @@ export function DiscoverPage() {
   }
 
   return (
-    <section className="grid" style={{ gap: '1rem' }}>
-      <div className="card hero-card">
+    <section className="grid page-section" style={{ gap: '1rem' }}>
+      <div className="card hero-card smooth-enter">
         <div className="eyebrow">Palette-driven dashboard refresh</div>
         <h1 className="hero-title">Explore the market with faster filtering and smoother browsing.</h1>
         <p className="hero-copy">
@@ -170,8 +178,8 @@ export function DiscoverPage() {
                   >
                     <div>
                       <strong>{stock.ticker}</strong>
-                      <div className="muted" style={{ fontSize: '0.84rem' }}>
-                        {stock.company_name ?? 'Unknown company'}
+                      <div className="suggestion-subtitle">
+                        {getCompanyLabel(stock.ticker, stock.company_name)}
                       </div>
                     </div>
                     <span className="chip">{getMarketLabel(stock.ticker)}</span>
@@ -213,7 +221,7 @@ export function DiscoverPage() {
       </div>
 
       {user && (
-        <div className="card">
+        <div className="card smooth-enter">
           <div className="panel-header">
             <div>
               <h2 className="section-title">Saved Watchlists</h2>
@@ -227,7 +235,7 @@ export function DiscoverPage() {
           ) : !watchlistsQuery.data?.items.length ? (
             <div className="empty-state">No saved watchlists yet. Create one from the watchlists page.</div>
           ) : (
-            <div className="mini-grid">
+            <div className="mini-grid stagger-children">
               {watchlistsQuery.data.items.slice(0, 4).map((watchlist) => (
                 <Link key={watchlist.id} to="/watchlists" className="list-card card-link">
                   <div>
@@ -242,7 +250,7 @@ export function DiscoverPage() {
         </div>
       )}
 
-      <div className="card table-shell table-wrap">
+      <div className="card table-shell table-wrap smooth-enter">
         {stocksQuery.isLoading && <div className="empty-state">Loading stocks...</div>}
         {stocksQuery.error && (
           <div className="card" style={{ borderColor: '#7f1d1d', marginBottom: '0.8rem' }}>
@@ -268,7 +276,7 @@ export function DiscoverPage() {
             {!pagedStocks.length ? (
               <div className="empty-state">No stocks match the current search and market filter.</div>
             ) : (
-              <div className="stock-cards-grid">
+              <div className="stock-cards-grid stagger-children">
                 {pagedStocks.map((stock) => (
                   <StockPreviewCard
                     key={stock.ticker}

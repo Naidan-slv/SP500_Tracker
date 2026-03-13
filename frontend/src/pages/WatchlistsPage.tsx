@@ -97,8 +97,8 @@ export function WatchlistsPage() {
 
   if (!user || !token) {
     return (
-      <section className="grid" style={{ gap: '1rem' }}>
-        <div className="card hero-card">
+      <section className="grid page-section" style={{ gap: '1rem' }}>
+        <div className="card hero-card smooth-enter">
           <div className="eyebrow">Your personal workspace</div>
           <h1 className="hero-title">Create watchlists and monitor your best ideas.</h1>
           <p className="hero-copy">
@@ -111,8 +111,8 @@ export function WatchlistsPage() {
   }
 
   return (
-    <section className="grid" style={{ gap: '1rem' }}>
-      <div className="card hero-card">
+    <section className="grid page-section" style={{ gap: '1rem' }}>
+      <div className="card hero-card smooth-enter">
         <div className="eyebrow">Watchlists + insights</div>
         <h1 className="hero-title">Track curated baskets and surface quick signals.</h1>
         <p className="hero-copy">
@@ -123,7 +123,7 @@ export function WatchlistsPage() {
 
       {pageError && <div className="card negative">{pageError}</div>}
 
-      <div className="dashboard-grid">
+      <div className="dashboard-grid stagger-columns">
         <div className="card sidebar-card">
           <div className="panel-header">
             <div>
@@ -173,7 +173,7 @@ export function WatchlistsPage() {
           </div>
         </div>
 
-        <div className="grid" style={{ gap: '1rem' }}>
+        <div className="grid stagger-children" style={{ gap: '1rem' }}>
           <div className="card">
             <div className="panel-header">
               <div>

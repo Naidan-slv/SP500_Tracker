@@ -109,7 +109,7 @@ export function StockDetailPage() {
   }, [liveItems, liveRange])
 
   return (
-    <section className="grid" style={{ gap: '1rem' }}>
+    <section className="grid page-section" style={{ gap: '1rem' }}>
       <div>
         <Link to="/discover" className="back-link">
           ← Back to discover
@@ -121,7 +121,7 @@ export function StockDetailPage() {
 
       {!initialLoading && !error && detail && (
         <>
-          <div className="card hero-card">
+          <div className="card hero-card smooth-enter">
             <div className="eyebrow">📌 Investment Snapshot</div>
             <div className="detail-hero">
               {detail.logo_url ? (
@@ -194,7 +194,7 @@ export function StockDetailPage() {
             </div>
           </div>
 
-          {activePanel === 'overview' && <div className="card">
+          {activePanel === 'overview' && <div className="card smooth-enter">
             <div className="panel-header">
               <div>
                 <h3 className="section-title">Price History</h3>
@@ -226,7 +226,7 @@ export function StockDetailPage() {
             </div>
           </div>}
 
-          {activePanel === 'live' && <div className="card">
+          {activePanel === 'live' && <div className="card smooth-enter">
             <div className="panel-header">
               <div>
                 <h3 className="section-title">Live Market Activity</h3>
@@ -290,7 +290,7 @@ export function StockDetailPage() {
             )}
           </div>}
 
-          {activePanel === 'news' && <div className="card">
+          {activePanel === 'news' && <div className="card smooth-enter">
             <div className="panel-header">
               <div>
                 <h3 className="section-title">Latest News</h3>

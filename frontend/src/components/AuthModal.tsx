@@ -159,7 +159,7 @@ export function AuthModal({ open, onClose }: { open: boolean; onClose: () => voi
                 />
               </label>
               {verificationLink && (
-                <div className="muted">
+                <div className="auth-helper-text">
                   Verification email sent. You can also open this link directly:{' '}
                   <a href={verificationLink} target="_blank" rel="noreferrer">
                     Verify now
@@ -181,7 +181,7 @@ export function AuthModal({ open, onClose }: { open: boolean; onClose: () => voi
           {message && <div className="chip positive">{message}</div>}
           {error && <div className="chip negative">{error}</div>}
 
-          <div style={{ display: 'flex', gap: '0.6rem' }}>
+          <div className="auth-action-row">
             {activeTab === 'login' && (
               <button className="button" type="button" disabled={loading} onClick={handleLogin}>
                 {loading ? 'Logging in...' : 'Login'}
