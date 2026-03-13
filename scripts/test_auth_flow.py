@@ -23,14 +23,6 @@ def main() -> None:
     print("register_status", register_resp.status_code)
     print("register_body", register_resp.json())
 
-    verification_token = register_resp.json().get("verification_token")
-    if not verification_token:
-        raise RuntimeError("verification_token missing; set EXPOSE_VERIFICATION_TOKEN=true for local testing")
-
-    verify_resp = client.post("/auth/verify-email", json={"token": verification_token})
-    print("verify_status", verify_resp.status_code)
-    print("verify_body", verify_resp.json())
-
     login_resp = client.post(
         "/auth/login",
         json={"email": unique_email, "password": password},

@@ -14,32 +14,12 @@ services:
         value: HS256
       - key: ACCESS_TOKEN_EXPIRE_MINUTES
         value: "60"
-      - key: EMAIL_VERIFICATION_TOKEN_EXPIRE_HOURS
-        value: "24"
-      - key: EXPOSE_VERIFICATION_TOKEN
-        value: "false"       # disable dev token exposure in production
       - key: APP_BASE_URL
         sync: false          # set to your Render service URL after deploy
       - key: FRONTEND_URL
         sync: false          # set to your frontend Render static site URL after deploy
-      - key: SMTP_ENABLED
-        value: "true"
-      - key: SMTP_HOST
-        sync: false
-      - key: SMTP_PORT
-        value: "587"
-      - key: SMTP_USERNAME
-        sync: false
-      - key: SMTP_PASSWORD
-        sync: false
-      - key: SMTP_FROM_EMAIL
-        sync: false
-      - key: SMTP_FROM_NAME
-        value: SP500 Tracker
-      - key: SMTP_USE_TLS
-        value: "true"
-      - key: SMTP_USE_SSL
-        value: "false"
+      - key: FINNHUB_API_KEY
+        sync: false          # set manually in Render dashboard
 
   - type: web
     name: sp500-tracker-frontend

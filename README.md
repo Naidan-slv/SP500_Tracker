@@ -12,7 +12,7 @@ Full-stack stock tracking platform for COMP3011 Web Services coursework.
 ## What It Does
 
 - Historical OHLCV data for 49 tickers (230,111 rows, 2006–2026)
-- JWT authentication with email verification
+- JWT authentication (register + login)
 - Watchlist and portfolio CRUD (ownership-scoped)
 - Watchlist analytics: price change %, volatility, concentration
 - Stock summary cards: latest price, 52-week high/low, % changes
@@ -40,7 +40,6 @@ Full-stack stock tracking platform for COMP3011 Web Services coursework.
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
 | POST | `/auth/register` | — | Create account |
-| POST | `/auth/verify-email` | — | Verify email token |
 | POST | `/auth/login` | — | Get JWT access token |
 | GET | `/auth/me` | ✅ | Current user profile |
 
@@ -163,12 +162,12 @@ Both tiers work together: the backend prevents redundant external calls while th
 
 ```bash
 pytest tests/
-# 142 tests, in-memory SQLite, no network required
+# 125 tests, in-memory SQLite, no network required
 ```
 
 Latest verified local checks:
 
-- `pytest -q` → `142 passed in 4.81s`
+- `pytest -q` → `125 passed in 4.49s`
 - `cd frontend && npm run build` → production build succeeded
 
 ---
@@ -181,13 +180,8 @@ Configured via `render.yaml`. Set these env vars in the Render dashboard:
 |----------|-------------|
 | `DATABASE_URL` | Supabase session pooler URI |
 | `JWT_SECRET_KEY` | Long random secret (generate: `openssl rand -hex 32`) |
-| `FRONTEND_URL` | Public frontend URL used in verification links (e.g. `https://sp500-tracker-frontend.onrender.com`) |
-| `SMTP_HOST` | SMTP server host (e.g. `smtp.gmail.com`) |
-| `SMTP_USERNAME` | SMTP username/login |
-| `SMTP_PASSWORD` | SMTP password or app password |
-| `SMTP_FROM_EMAIL` | Sender address for verification emails |
-
-`SMTP_ENABLED=true` is set in `render.yaml`; keep `SMTP_USE_TLS=true` unless your provider requires another mode.
+| `FRONTEND_URL` | Public frontend URL (e.g. `https://sp500-tracker-frontend.onrender.com`) |
+| `FINNHUB_API_KEY` | Finnhub API key for live market data |
 
 For the frontend, set `VITE_API_BASE_URL=https://sp500-tracker.onrender.com` when deploying to a static host such as Vercel or Netlify.
 
