@@ -78,6 +78,23 @@ Full-stack stock tracking platform for COMP3011 Web Services coursework.
 
 ## Local Development
 
+### One-command startup (recommended)
+
+```bash
+./scripts/dev.sh
+```
+
+This starts both services together and stops both on `Ctrl+C`:
+
+- Backend: `http://127.0.0.1:8000/docs`
+- Frontend: `http://127.0.0.1:5174`
+
+Optional port/host overrides:
+
+```bash
+BACKEND_PORT=8001 FRONTEND_PORT=5175 ./scripts/dev.sh
+```
+
 ### Backend
 
 ```bash
