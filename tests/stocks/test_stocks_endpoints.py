@@ -96,6 +96,27 @@ class TestStocksDiscover:
         assert body["total"] == 1
         assert body["items"][0]["ticker"] == "TSLA"
 
+    def test_list_stocks_search_uses_provider_symbol_fallback(
+        self,
+        client: TestClient,
+        db_session: Session,
+        monkeypatch,
+    ):
+        seed_stock_data(db_session)
+
+        monkeypatch.setattr(stocks_routes, "_search_yahoo_tickers", lambda _search: ["MSFT"])
+        async def fake_fetch_company_profile(_ticker: str):
+            return None, None
+
+        monkeypatch.setattr(stocks_routes, "_fetch_company_profile", fake_fetch_company_profile)
+
+        resp = client.get("/stocks?search=windows-maker")
+        assert resp.status_code == 200
+        body = resp.json()
+
+        assert body["total"] == 1
+        assert body["items"][0]["ticker"] == "MSFT"
+
 
 class TestStockHistory:
     def test_history_returns_points_for_known_ticker(self, client: TestClient, db_session: Session):

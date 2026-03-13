@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -60,6 +60,44 @@ def _get_user_watchlist_or_404(db: Session, watchlist_id: int, user_id: int) -> 
     if not watchlist:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Watchlist not found")
     return watchlist
+
+
+def _compact_sql_text(expression):
+    compact = func.upper(func.coalesce(expression, ""))
+    for token in (" ", ".", "-", "_", "/", "&", "'", ","):
+        compact = func.replace(compact, token, "")
+    return compact
+
+
+def _compact_input_text(value: str) -> str:
+    return "".join(char for char in value.upper() if char.isalnum())
+
+
+def _resolve_stock_from_input(db: Session, raw_input: str) -> Stock | None:
+    normalized_ticker = raw_input.strip().upper()
+    if not normalized_ticker:
+        return None
+
+    exact_match = db.get(Stock, normalized_ticker)
+    if exact_match:
+        return exact_match
+
+    compact_search = _compact_input_text(raw_input)
+    if not compact_search:
+        return None
+
+    compact_pattern = f"%{compact_search}%"
+    return db.scalar(
+        select(Stock)
+        .where(
+            or_(
+                _compact_sql_text(Stock.ticker).like(compact_pattern),
+                _compact_sql_text(Stock.company_name).like(compact_pattern),
+            )
+        )
+        .order_by(Stock.ticker.asc())
+        .limit(1)
+    )
 
 
 @router.post("", response_model=WatchlistPublic, status_code=status.HTTP_201_CREATED)
@@ -168,10 +206,14 @@ def add_watchlist_item(
 ):
     _get_user_watchlist_or_404(db, watchlist_id, current_user.id)
 
-    normalized_ticker = payload.ticker.strip().upper()
-    stock = db.get(Stock, normalized_ticker)
+    stock = _resolve_stock_from_input(db, payload.ticker)
     if not stock:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ticker not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Ticker not found. Use a valid ticker or company name.",
+        )
+
+    normalized_ticker = stock.ticker
 
     item = WatchlistItem(watchlist_id=watchlist_id, ticker=normalized_ticker)
     db.add(item)

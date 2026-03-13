@@ -599,3 +599,85 @@ This session added the two most visible "intelligence" features of the product: 
 - Frontend build completed successfully after animation pass
 - No new TypeScript or diagnostics errors introduced
 - UI now has consistent motion language across key pages
+
+---
+
+### Entry 012 — Local Developer Experience: One-Command Full-Stack Runner
+**Date:** 13 March 2026  
+**Commit(s):** Local workflow tooling and docs update
+
+#### What Was Done
+- Added `scripts/dev.sh` to launch backend + frontend together in one command
+- Configured script defaults:
+	- Backend: `127.0.0.1:8000`
+	- Frontend: `127.0.0.1:5174`
+- Added graceful shutdown behavior so `Ctrl+C` stops both processes
+- Added startup checks for:
+	- missing `.venv` Python executable
+	- missing `npm`
+	- missing `frontend/node_modules`
+- Updated `README.md` local-development section with one-command startup instructions and optional host/port overrides
+
+#### What I Asked the AI
+- To eliminate fragile multi-terminal startup flow and make local running deterministic
+- To provide a clean, repeatable command that mirrors how the app is expected to be run for demo/testing
+
+#### What the AI Produced
+- A root-level launcher script using process orchestration + signal traps
+- Clear usage docs with practical override examples (`BACKEND_PORT=... FRONTEND_PORT=...`)
+- A smoke-test sequence proving both services respond while launched together
+
+#### My Decisions and Overrides
+- Kept launcher as a shell script (`scripts/dev.sh`) rather than introducing additional tooling dependencies
+- Retained manual control over backend/frontend commands while standardising orchestration
+
+#### Verified Outcomes
+- Launcher smoke test returned:
+	- `backend:200` on `/docs`
+	- `frontend:200` on `/`
+- Script exits cleanly and tears down spawned processes
+
+---
+
+### Entry 013 — Search Reliability and Ticker/Company Resolution Hardening
+**Date:** 13 March 2026  
+**Commit(s):** Search relevance + company-name resolution + endpoint test expansion
+
+#### What Was Done
+- Improved backend stock search matching in `app/api/routes/stocks.py`:
+	- Added normalized search matching that ignores punctuation/case/spacing differences
+	- Added compact SQL matching for ticker and company name
+	- Added provider fallback search path using Yahoo symbol search when direct DB search has no hits
+- Improved company-name hydration reliability:
+	- Extended profile resolution to fallback to Yahoo quote metadata when Finnhub key/profile is unavailable
+- Improved watchlist/portfolio input resolution:
+	- `POST /watchlists/{id}/items` now resolves ticker *or* company-like input
+	- `POST /portfolios/{id}/holdings` now resolves ticker *or* company-like input
+	- Added clearer 404 guidance when a symbol/company cannot be resolved
+- Improved frontend discover search coverage:
+	- Added `fetchStocksUniverse()` pagination helper in `frontend/src/lib/api.ts`
+	- Updated `DiscoverPage` to search across the full fetched universe instead of a small subset
+- Updated watchlist/portfolio input placeholders and behavior to reflect ticker-or-company support
+
+#### What I Asked the AI
+- To fix cases where search struggled to find expected results
+- To fix missing company names and make ticker/company entry more forgiving in user workflows
+
+#### What the AI Produced
+- Backend normalization/fallback logic and lookup helpers
+- Frontend universe-fetch helper and discover query update
+- New targeted tests for:
+	- provider symbol-fallback search behavior
+	- company-name input support in watchlists and portfolios
+
+#### My Decisions and Overrides
+- Prioritised robust matching and user-friendly resolution over strict ticker-only input
+- Kept fallbacks constrained to known DB tickers to avoid exposing unknown symbols with no local data
+
+#### Verified Outcomes
+- Targeted backend tests passed:
+	- `tests/stocks/test_stocks_endpoints.py`
+	- `tests/portfolios/test_portfolios_endpoints.py`
+	- `tests/watchlists/test_watchlists_endpoints.py`
+	- Result: `37 passed`
+- Frontend production build passed after changes (`npm run build`)

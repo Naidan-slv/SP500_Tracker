@@ -2,6 +2,7 @@ from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from email.utils import parsedate_to_datetime
 from enum import Enum
+from typing import Any
 from urllib.parse import quote_plus
 from xml.etree import ElementTree
 
@@ -158,32 +159,101 @@ def _safe_pct(current: float | None, prior: float | None) -> float | None:
     return round((current - prior) / prior * 100, 4)
 
 
-async def _fetch_company_profile(ticker: str) -> tuple[str | None, str | None]:
-    if not settings.finnhub_api_key:
-        return None, None
+def _normalize_search_text(value: str) -> str:
+    return "".join(char for char in value.upper() if char.isalnum())
+
+
+def _compact_sql_text(expression):
+    compact = func.upper(func.coalesce(expression, ""))
+    for token in (" ", ".", "-", "_", "/", "&", "'", ","):
+        compact = func.replace(compact, token, "")
+    return compact
+
+
+def _extract_company_name(payload: dict[str, Any]) -> str | None:
+    for key in ("name", "longName", "shortName", "displayName"):
+        value = payload.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return None
+
+
+def _extract_logo_url(payload: dict[str, Any]) -> str | None:
+    logo = payload.get("logo")
+    if isinstance(logo, str) and logo.strip():
+        return logo.strip()
+    return None
+
+
+def _search_yahoo_tickers(search: str, limit: int = 20) -> list[str]:
+    query = search.strip()
+    if not query:
+        return []
 
     try:
-        async with httpx.AsyncClient(timeout=5.0) as client:
+        response = httpx.get(
+            "https://query1.finance.yahoo.com/v1/finance/search",
+            params={"q": query, "quotesCount": limit, "newsCount": 0},
+            timeout=6.0,
+        )
+        response.raise_for_status()
+        payload = response.json()
+    except Exception:
+        return []
+
+    quotes = payload.get("quotes") if isinstance(payload, dict) else None
+    if not isinstance(quotes, list):
+        return []
+
+    tickers: list[str] = []
+    for quote in quotes:
+        if not isinstance(quote, dict):
+            continue
+        symbol = quote.get("symbol")
+        if isinstance(symbol, str) and symbol.strip():
+            tickers.append(symbol.strip().upper())
+
+    return tickers
+
+
+async def _fetch_company_profile(ticker: str) -> tuple[str | None, str | None]:
+    if not settings.finnhub_api_key:
+        pass
+    else:
+        try:
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                response = await client.get(
+                    "https://finnhub.io/api/v1/stock/profile2",
+                    params={"symbol": ticker, "token": settings.finnhub_api_key},
+                )
+            response.raise_for_status()
+            data = response.json()
+            if isinstance(data, dict):
+                company_name = _extract_company_name(data)
+                logo_url = _extract_logo_url(data)
+                if company_name or logo_url:
+                    return company_name, logo_url
+        except Exception:
+            pass
+
+    try:
+        async with httpx.AsyncClient(timeout=6.0) as client:
             response = await client.get(
-                "https://finnhub.io/api/v1/stock/profile2",
-                params={"symbol": ticker, "token": settings.finnhub_api_key},
+                "https://query1.finance.yahoo.com/v7/finance/quote",
+                params={"symbols": ticker},
             )
         response.raise_for_status()
-        data = response.json()
-        if not isinstance(data, dict):
-            return None, None
-
-        company_name = data.get("name") if isinstance(data.get("name"), str) else None
-        logo_url = data.get("logo") if isinstance(data.get("logo"), str) else None
-
-        if logo_url and not logo_url.strip():
-            logo_url = None
-        if company_name and not company_name.strip():
-            company_name = None
-
-        return company_name, logo_url
+        payload = response.json()
+        result = ((payload.get("quoteResponse") or {}).get("result") or []) if isinstance(payload, dict) else []
+        row = result[0] if isinstance(result, list) and result else None
+        if isinstance(row, dict):
+            company_name = _extract_company_name(row)
+            if company_name:
+                return company_name, None
     except Exception:
-        return None, None
+        pass
+
+    return None, None
 
 
 async def _ensure_stock_profile(stock: Stock, db: Session) -> tuple[str | None, str | None]:
@@ -342,18 +412,44 @@ async def list_stocks(
     db: Session = Depends(get_db),
 ):
     base_query = select(Stock)
+    normalized_search = ""
 
     if search:
-        pattern = f"%{search.strip().upper()}%"
+        trimmed_search = search.strip()
+        pattern = f"%{trimmed_search.upper()}%"
+        normalized_search = _normalize_search_text(trimmed_search)
+        normalized_pattern = f"%{normalized_search}%" if normalized_search else ""
+
+        search_conditions = [
+            func.upper(Stock.ticker).like(pattern),
+            func.upper(func.coalesce(Stock.company_name, "")).like(pattern),
+        ]
+
+        if normalized_pattern:
+            search_conditions.extend(
+                [
+                    _compact_sql_text(Stock.ticker).like(normalized_pattern),
+                    _compact_sql_text(Stock.company_name).like(normalized_pattern),
+                ]
+            )
+
         base_query = base_query.where(
             or_(
-                func.upper(Stock.ticker).like(pattern),
-                func.upper(func.coalesce(Stock.company_name, "")).like(pattern),
+                *search_conditions,
             )
         )
 
     total = db.scalar(select(func.count()).select_from(base_query.subquery())) or 0
     rows = db.scalars(base_query.order_by(Stock.ticker.asc()).limit(limit).offset(offset)).all()
+
+    if search and total == 0:
+        suggested_tickers = _search_yahoo_tickers(search)
+        if suggested_tickers:
+            fallback_query = select(Stock).where(Stock.ticker.in_(suggested_tickers))
+            total = db.scalar(select(func.count()).select_from(fallback_query.subquery())) or 0
+            rows = db.scalars(
+                fallback_query.order_by(Stock.ticker.asc()).limit(limit).offset(offset)
+            ).all()
 
     hydrated_items: list[StockListItem] = []
     for row in rows:

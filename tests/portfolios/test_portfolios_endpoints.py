@@ -91,6 +91,23 @@ class TestPortfolioHoldings:
         )
         assert resp.status_code == 404
 
+    def test_add_holding_accepts_company_name_input(
+        self,
+        client: TestClient,
+        auth_headers: dict,
+        db_session: Session,
+    ):
+        seed_stocks(db_session)
+        portfolio_id = create_portfolio(client, auth_headers)
+
+        resp = client.post(
+            f"/portfolios/{portfolio_id}/holdings",
+            json={"ticker": "Microsoft", "quantity": 2},
+            headers=auth_headers,
+        )
+        assert resp.status_code == 201
+        assert resp.json()["ticker"] == "MSFT"
+
     def test_add_duplicate_ticker_returns_409(self, client: TestClient, auth_headers: dict, db_session: Session):
         seed_stocks(db_session)
         portfolio_id = create_portfolio(client, auth_headers)

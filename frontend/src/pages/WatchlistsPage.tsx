@@ -198,8 +198,8 @@ export function WatchlistsPage() {
                 <input
                   className="input"
                   value={newTicker}
-                  onChange={(event) => setNewTicker(event.target.value.toUpperCase())}
-                  placeholder="Add ticker (e.g. AAPL)"
+                  onChange={(event) => setNewTicker(event.target.value)}
+                  placeholder="Add ticker or company (e.g. AAPL, Microsoft)"
                 />
                 <button
                   className="button"

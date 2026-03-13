@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 
 import { useAuth } from '../auth/AuthContext'
-import { fetchStockDetail, fetchStockHistory, fetchStocks, fetchWatchlists, getApiBaseUrl } from '../lib/api'
+import { fetchStockDetail, fetchStockHistory, fetchStocksUniverse, fetchWatchlists, getApiBaseUrl } from '../lib/api'
 import { getMarketLabel, matchesMarketFilter, type MarketFilter } from '../lib/market'
 
 const PAGE_SIZE = 12
@@ -70,7 +70,7 @@ export function DiscoverPage() {
 
   const stocksQuery = useQuery({
     queryKey: ['stocks-universe'],
-    queryFn: () => fetchStocks('', 100, 0),
+    queryFn: () => fetchStocksUniverse(),
     staleTime: 1000 * 60 * 10,
     gcTime: 1000 * 60 * 30,
   })

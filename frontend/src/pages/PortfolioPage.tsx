@@ -213,8 +213,8 @@ export function PortfolioPage() {
                 <input
                   className="input"
                   value={holdingTicker}
-                  onChange={(event) => setHoldingTicker(event.target.value.toUpperCase())}
-                  placeholder="Ticker"
+                  onChange={(event) => setHoldingTicker(event.target.value)}
+                  placeholder="Ticker or company"
                 />
                 <input
                   className="input"

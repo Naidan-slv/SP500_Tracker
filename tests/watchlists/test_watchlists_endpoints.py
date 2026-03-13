@@ -89,6 +89,23 @@ class TestWatchlistItems:
         )
         assert resp.status_code == 404
 
+    def test_add_watchlist_item_accepts_company_name_input(
+        self,
+        client: TestClient,
+        auth_headers: dict,
+        db_session: Session,
+    ):
+        seed_stocks(db_session)
+        watchlist_id = create_watchlist(client, auth_headers)
+
+        resp = client.post(
+            f"/watchlists/{watchlist_id}/items",
+            json={"ticker": "Apple"},
+            headers=auth_headers,
+        )
+        assert resp.status_code == 201
+        assert resp.json()["ticker"] == "AAPL"
+
     def test_add_duplicate_ticker_returns_409(self, client: TestClient, auth_headers: dict, db_session: Session):
         seed_stocks(db_session)
         watchlist_id = create_watchlist(client, auth_headers)

@@ -81,6 +81,27 @@ export async function fetchStocks(search: string, limit = 25, offset = 0): Promi
   return request<StockListResponse>(`/stocks?${query.toString()}`)
 }
 
+export async function fetchStocksUniverse(): Promise<StockListResponse> {
+  const pageSize = 200
+  let offset = 0
+  let total = 0
+  const items: StockListResponse['items'] = []
+
+  do {
+    const page = await fetchStocks('', pageSize, offset)
+    total = page.total
+    items.push(...page.items)
+    offset += page.items.length
+  } while (offset < total)
+
+  return {
+    total,
+    limit: pageSize,
+    offset: 0,
+    items,
+  }
+}
+
 export async function fetchStockDetail(ticker: string): Promise<StockDetailResponse> {
   return request<StockDetailResponse>(`/stocks/${encodeURIComponent(ticker)}`)
 }
