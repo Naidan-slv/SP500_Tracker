@@ -9,6 +9,7 @@ import {
   deletePortfolio,
   fetchPortfolioHoldings,
   fetchPortfolios,
+  fetchStocksUniverse,
   removePortfolioHolding,
 } from '../lib/api'
 
@@ -17,6 +18,7 @@ export function PortfolioPage() {
   const { token, user } = useAuth()
   const [newPortfolioName, setNewPortfolioName] = useState('')
   const [holdingTicker, setHoldingTicker] = useState('')
+  const [showSuggestions, setShowSuggestions] = useState(false)
   const [quantity, setQuantity] = useState('')
   const [avgCost, setAvgCost] = useState('')
   const [selectedPortfolioId, setSelectedPortfolioId] = useState<number | null>(null)
@@ -38,6 +40,13 @@ export function PortfolioPage() {
     queryKey: ['portfolio-holdings', token, selectedPortfolioId],
     queryFn: () => fetchPortfolioHoldings(token!, selectedPortfolioId!),
     enabled: Boolean(token && selectedPortfolioId),
+  })
+
+  const stocksUniverseQuery = useQuery({
+    queryKey: ['stocks-universe', 'portfolio-page'],
+    queryFn: () => fetchStocksUniverse(),
+    staleTime: 1000 * 60 * 10,
+    gcTime: 1000 * 60 * 30,
   })
 
   const createMutation = useMutation({
@@ -109,6 +118,23 @@ export function PortfolioPage() {
       estimatedCost,
     }
   }, [holdingsQuery.data])
+
+  const suggestions = useMemo(() => {
+    const search = holdingTicker.trim().toUpperCase()
+    const allStocks = stocksUniverseQuery.data?.items ?? []
+
+    if (!search) {
+      return allStocks.slice(0, 12)
+    }
+
+    return allStocks
+      .filter((stock) => {
+        const ticker = stock.ticker.toUpperCase()
+        const company = (stock.company_name ?? '').toUpperCase()
+        return ticker.includes(search) || company.includes(search)
+      })
+      .slice(0, 12)
+  }, [holdingTicker, stocksUniverseQuery.data])
 
   if (!user || !token) {
     return (
@@ -210,12 +236,40 @@ export function PortfolioPage() {
 
             {selectedPortfolio ? (
               <div className="grid grid-2">
-                <input
-                  className="input"
-                  value={holdingTicker}
-                  onChange={(event) => setHoldingTicker(event.target.value)}
-                  placeholder="Ticker or company"
-                />
+                <div className="search-box">
+                  <input
+                    className="input"
+                    value={holdingTicker}
+                    onFocus={() => setShowSuggestions(true)}
+                    onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+                    onChange={(event) => {
+                      setHoldingTicker(event.target.value)
+                      setShowSuggestions(true)
+                    }}
+                    placeholder="Ticker or company"
+                  />
+
+                  {showSuggestions && suggestions.length > 0 && (
+                    <div className="suggestions-card">
+                      {suggestions.map((stock) => (
+                        <button
+                          key={stock.ticker}
+                          type="button"
+                          className="suggestion-item"
+                          onClick={() => {
+                            setHoldingTicker(stock.ticker)
+                            setShowSuggestions(false)
+                          }}
+                        >
+                          <div>
+                            <strong>{stock.ticker}</strong>
+                            <div className="suggestion-subtitle">{stock.company_name ?? stock.ticker}</div>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
                 <input
                   className="input"
                   value={quantity}
@@ -286,6 +340,9 @@ export function PortfolioPage() {
                             <Link to={`/stocks/${holding.ticker}`} className="link-inline">
                               {holding.ticker}
                             </Link>
+                            <div className="muted" style={{ fontSize: '0.82rem' }}>
+                              {holding.company_name ?? holding.ticker}
+                            </div>
                           </td>
                           <td>{holding.quantity.toFixed(4)}</td>
                           <td>{holding.avg_cost ? `$${holding.avg_cost.toFixed(2)}` : '—'}</td>

@@ -141,6 +141,32 @@ class TestUserResourceContracts:
         assert set(body.keys()) == {"total", "limit", "offset", "items"}
         assert set(body["items"][0].keys()) == {"id", "name", "created_at", "items_count"}
 
+    def test_watchlist_items_contract_includes_company_name(
+        self,
+        client: TestClient,
+        db_session: Session,
+    ):
+        seed_stock_data(db_session)
+
+        reg = client.post(
+            "/auth/register",
+            json={"email": "contract_watch_items@example.com", "password": "Password123"},
+        )
+        client.post("/auth/verify-email", json={"token": reg.json()["verification_token"]})
+        login = client.post(
+            "/auth/login",
+            json={"email": "contract_watch_items@example.com", "password": "Password123"},
+        )
+        headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
+
+        watchlist_id = client.post("/watchlists", json={"name": "Tech"}, headers=headers).json()["id"]
+        client.post(f"/watchlists/{watchlist_id}/items", json={"ticker": "AAPL"}, headers=headers)
+
+        resp = client.get(f"/watchlists/{watchlist_id}/items", headers=headers)
+        assert resp.status_code == 200
+        body = resp.json()
+        assert set(body["items"][0].keys()) == {"id", "ticker", "company_name", "added_at"}
+
     def test_portfolio_list_contract(self, client: TestClient):
         reg = client.post(
             "/auth/register",
@@ -160,3 +186,39 @@ class TestUserResourceContracts:
 
         assert set(body.keys()) == {"total", "limit", "offset", "items"}
         assert set(body["items"][0].keys()) == {"id", "name", "created_at", "holdings_count"}
+
+    def test_portfolio_holdings_contract_includes_company_name(
+        self,
+        client: TestClient,
+        db_session: Session,
+    ):
+        seed_stock_data(db_session)
+
+        reg = client.post(
+            "/auth/register",
+            json={"email": "contract_port_holdings@example.com", "password": "Password123"},
+        )
+        client.post("/auth/verify-email", json={"token": reg.json()["verification_token"]})
+        login = client.post(
+            "/auth/login",
+            json={"email": "contract_port_holdings@example.com", "password": "Password123"},
+        )
+        headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
+
+        portfolio_id = client.post("/portfolios", json={"name": "Core"}, headers=headers).json()["id"]
+        client.post(
+            f"/portfolios/{portfolio_id}/holdings",
+            json={"ticker": "AAPL", "quantity": 2},
+            headers=headers,
+        )
+
+        resp = client.get(f"/portfolios/{portfolio_id}/holdings", headers=headers)
+        assert resp.status_code == 200
+        body = resp.json()
+        assert set(body["items"][0].keys()) == {
+            "id",
+            "ticker",
+            "company_name",
+            "quantity",
+            "avg_cost",
+        }

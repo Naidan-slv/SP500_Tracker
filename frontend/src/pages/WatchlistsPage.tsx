@@ -6,6 +6,7 @@ import { useAuth } from '../auth/AuthContext'
 import {
   addWatchlistItem,
   createWatchlist,
+  fetchStocksUniverse,
   deleteWatchlist,
   fetchWatchlistInsights,
   fetchWatchlistItems,
@@ -18,8 +19,16 @@ export function WatchlistsPage() {
   const { token, user } = useAuth()
   const [newWatchlistName, setNewWatchlistName] = useState('')
   const [newTicker, setNewTicker] = useState('')
+  const [showSuggestions, setShowSuggestions] = useState(false)
   const [selectedWatchlistId, setSelectedWatchlistId] = useState<number | null>(null)
   const [pageError, setPageError] = useState<string | null>(null)
+
+  const stocksUniverseQuery = useQuery({
+    queryKey: ['stocks-universe', 'watchlists-page'],
+    queryFn: () => fetchStocksUniverse(),
+    staleTime: 1000 * 60 * 10,
+    gcTime: 1000 * 60 * 30,
+  })
 
   const watchlistsQuery = useQuery({
     queryKey: ['watchlists', token],
@@ -94,6 +103,23 @@ export function WatchlistsPage() {
     () => watchlistsQuery.data?.items.find((item) => item.id === selectedWatchlistId) ?? null,
     [selectedWatchlistId, watchlistsQuery.data],
   )
+
+  const suggestions = useMemo(() => {
+    const search = newTicker.trim().toUpperCase()
+    const allStocks = stocksUniverseQuery.data?.items ?? []
+
+    if (!search) {
+      return allStocks.slice(0, 12)
+    }
+
+    return allStocks
+      .filter((stock) => {
+        const ticker = stock.ticker.toUpperCase()
+        const company = (stock.company_name ?? '').toUpperCase()
+        return ticker.includes(search) || company.includes(search)
+      })
+      .slice(0, 12)
+  }, [newTicker, stocksUniverseQuery.data])
 
   if (!user || !token) {
     return (
@@ -195,12 +221,40 @@ export function WatchlistsPage() {
 
             {selectedWatchlist ? (
               <div className="search-row">
-                <input
-                  className="input"
-                  value={newTicker}
-                  onChange={(event) => setNewTicker(event.target.value)}
-                  placeholder="Add ticker or company (e.g. AAPL, Microsoft)"
-                />
+                <div className="search-box">
+                  <input
+                    className="input"
+                    value={newTicker}
+                    onFocus={() => setShowSuggestions(true)}
+                    onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+                    onChange={(event) => {
+                      setNewTicker(event.target.value)
+                      setShowSuggestions(true)
+                    }}
+                    placeholder="Add ticker or company (e.g. AAPL, Microsoft)"
+                  />
+
+                  {showSuggestions && suggestions.length > 0 && (
+                    <div className="suggestions-card">
+                      {suggestions.map((stock) => (
+                        <button
+                          key={stock.ticker}
+                          type="button"
+                          className="suggestion-item"
+                          onClick={() => {
+                            setNewTicker(stock.ticker)
+                            setShowSuggestions(false)
+                          }}
+                        >
+                          <div>
+                            <strong>{stock.ticker}</strong>
+                            <div className="suggestion-subtitle">{stock.company_name ?? stock.ticker}</div>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
                 <button
                   className="button"
                   type="button"
@@ -252,6 +306,9 @@ export function WatchlistsPage() {
                             <Link to={`/stocks/${item.ticker}`} className="link-inline">
                               {item.ticker}
                             </Link>
+                            <div className="muted" style={{ fontSize: '0.82rem' }}>
+                              {item.company_name ?? item.ticker}
+                            </div>
                           </td>
                           <td>{new Date(item.added_at).toLocaleDateString()}</td>
                           <td>

@@ -72,6 +72,7 @@ class TestPortfolioHoldings:
         )
         assert add_resp.status_code == 201
         assert add_resp.json()["ticker"] == "AAPL"
+        assert add_resp.json()["company_name"] == "Apple Inc."
         assert add_resp.json()["quantity"] == 10
         assert add_resp.json()["avg_cost"] == 100
 
@@ -80,6 +81,7 @@ class TestPortfolioHoldings:
         body = list_resp.json()
         assert body["total"] == 1
         assert body["items"][0]["ticker"] == "AAPL"
+        assert body["items"][0]["company_name"] == "Apple Inc."
 
     def test_add_invalid_ticker_returns_404(self, client: TestClient, auth_headers: dict):
         portfolio_id = create_portfolio(client, auth_headers)
@@ -107,6 +109,25 @@ class TestPortfolioHoldings:
         )
         assert resp.status_code == 201
         assert resp.json()["ticker"] == "MSFT"
+
+    def test_add_holding_accepts_company_name_with_missing_db_name(
+        self,
+        client: TestClient,
+        auth_headers: dict,
+        db_session: Session,
+    ):
+        db_session.add(Stock(ticker="AAPL", company_name=None))
+        db_session.commit()
+        portfolio_id = create_portfolio(client, auth_headers)
+
+        resp = client.post(
+            f"/portfolios/{portfolio_id}/holdings",
+            json={"ticker": "Apple", "quantity": 1},
+            headers=auth_headers,
+        )
+        assert resp.status_code == 201
+        assert resp.json()["ticker"] == "AAPL"
+        assert resp.json()["company_name"] == "Apple Inc."
 
     def test_add_duplicate_ticker_returns_409(self, client: TestClient, auth_headers: dict, db_session: Session):
         seed_stocks(db_session)

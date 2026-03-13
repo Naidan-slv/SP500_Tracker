@@ -135,6 +135,7 @@ export type WatchlistListResponse = {
 export type WatchlistItem = {
   id: number
   ticker: string
+  company_name: string | null
   added_at: string
 }
 
@@ -189,6 +190,7 @@ export type PortfolioListResponse = {
 export type HoldingPublic = {
   id: number
   ticker: string
+  company_name: string | null
   quantity: number
   avg_cost: number | null
 }

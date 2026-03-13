@@ -13,6 +13,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.config import settings
+from app.company_overrides import COMPANY_NAME_OVERRIDES
 from app.database.dependencies import get_db
 from app.database.models import Stock, StockPrice
 
@@ -185,6 +186,37 @@ def _extract_logo_url(payload: dict[str, Any]) -> str | None:
     return None
 
 
+def _fetch_yahoo_company_name_from_search(ticker: str) -> str | None:
+    try:
+        response = httpx.get(
+            "https://query1.finance.yahoo.com/v1/finance/search",
+            params={"q": ticker, "quotesCount": 8, "newsCount": 0},
+            timeout=6.0,
+        )
+        response.raise_for_status()
+        payload = response.json()
+    except Exception:
+        return None
+
+    quotes = payload.get("quotes") if isinstance(payload, dict) else None
+    if not isinstance(quotes, list):
+        return None
+
+    normalized = ticker.strip().upper()
+    for quote in quotes:
+        if not isinstance(quote, dict):
+            continue
+        symbol = quote.get("symbol")
+        if not isinstance(symbol, str) or symbol.strip().upper() != normalized:
+            continue
+
+        company_name = _extract_company_name(quote)
+        if company_name:
+            return company_name
+
+    return None
+
+
 def _search_yahoo_tickers(search: str, limit: int = 20) -> list[str]:
     query = search.strip()
     if not query:
@@ -217,6 +249,10 @@ def _search_yahoo_tickers(search: str, limit: int = 20) -> list[str]:
 
 
 async def _fetch_company_profile(ticker: str) -> tuple[str | None, str | None]:
+    override_name = COMPANY_NAME_OVERRIDES.get(ticker.strip().upper())
+    if override_name:
+        return override_name, None
+
     if not settings.finnhub_api_key:
         pass
     else:
@@ -253,6 +289,10 @@ async def _fetch_company_profile(ticker: str) -> tuple[str | None, str | None]:
     except Exception:
         pass
 
+    search_name = _fetch_yahoo_company_name_from_search(ticker)
+    if search_name:
+        return search_name, None
+
     return None, None
 
 
@@ -280,7 +320,7 @@ async def _ensure_stock_profile(stock: Stock, db: Session) -> tuple[str | None, 
         db.commit()
         db.refresh(stock)
 
-    return (company_name or stock.ticker), logo_url
+    return company_name, logo_url
 
 
 def _timeframe_start_datetime(timeframe: Timeframe, now_utc: datetime) -> datetime:
@@ -441,6 +481,20 @@ async def list_stocks(
 
     total = db.scalar(select(func.count()).select_from(base_query.subquery())) or 0
     rows = db.scalars(base_query.order_by(Stock.ticker.asc()).limit(limit).offset(offset)).all()
+
+    if search and total == 0:
+        override_matches: list[str] = []
+        if normalized_search:
+            for ticker_key, company_name in COMPANY_NAME_OVERRIDES.items():
+                if normalized_search in _normalize_search_text(company_name):
+                    override_matches.append(ticker_key)
+
+        if override_matches:
+            fallback_query = select(Stock).where(Stock.ticker.in_(override_matches))
+            total = db.scalar(select(func.count()).select_from(fallback_query.subquery())) or 0
+            rows = db.scalars(
+                fallback_query.order_by(Stock.ticker.asc()).limit(limit).offset(offset)
+            ).all()
 
     if search and total == 0:
         suggested_tickers = _search_yahoo_tickers(search)

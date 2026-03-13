@@ -1,8 +1,18 @@
 import { Suspense, lazy, useEffect, useMemo, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useParams } from 'react-router-dom'
 
-import { fetchStockDetail, fetchStockHistory, fetchStockLive, fetchStockNews } from '../lib/api'
+import { useAuth } from '../auth/AuthContext'
+import {
+  addPortfolioHolding,
+  addWatchlistItem,
+  fetchPortfolios,
+  fetchStockDetail,
+  fetchStockHistory,
+  fetchStockLive,
+  fetchStockNews,
+  fetchWatchlists,
+} from '../lib/api'
 
 const StockHistoryChart = lazy(() =>
   import('../components/StockHistoryChart').then((module) => ({
@@ -25,18 +35,69 @@ function pctClass(value: number | null): string {
 
 export function StockDetailPage() {
   const { ticker = '' } = useParams<{ ticker: string }>()
+  const queryClient = useQueryClient()
+  const { token, user } = useAuth()
 
   const [activePanel, setActivePanel] = useState<'overview' | 'live' | 'news'>('overview')
   const [timeframe, setTimeframe] = useState<'1w' | '1m' | '3m' | '6m' | '1y' | '5y' | 'max'>('6m')
   const [newsTimeframe, setNewsTimeframe] = useState<'1w' | '1m' | '3m' | '6m' | '1y' | '5y' | 'max'>('1w')
   const [liveRange, setLiveRange] = useState<'1d' | '5d' | '1mo'>('1d')
   const [liveInterval, setLiveInterval] = useState<'1m' | '2m' | '5m' | '15m' | '30m' | '60m'>('5m')
+  const [selectedWatchlistId, setSelectedWatchlistId] = useState<number | ''>('')
+  const [selectedPortfolioId, setSelectedPortfolioId] = useState<number | ''>('')
+  const [quickActionMessage, setQuickActionMessage] = useState<string | null>(null)
 
   const liveIntervalOptions = useMemo(() => {
     if (liveRange === '1d') return ['1m', '2m', '5m', '15m', '30m', '60m'] as const
     if (liveRange === '5d') return ['5m', '15m', '30m', '60m'] as const
     return ['15m', '30m', '60m'] as const
   }, [liveRange])
+
+  const watchlistsQuery = useQuery({
+    queryKey: ['watchlists-stock-detail', token],
+    queryFn: () => fetchWatchlists(token!),
+    enabled: Boolean(token),
+  })
+
+  const portfoliosQuery = useQuery({
+    queryKey: ['portfolios-stock-detail', token],
+    queryFn: () => fetchPortfolios(token!),
+    enabled: Boolean(token),
+  })
+
+  useEffect(() => {
+    if (!selectedWatchlistId && watchlistsQuery.data?.items.length) {
+      setSelectedWatchlistId(watchlistsQuery.data.items[0].id)
+    }
+  }, [selectedWatchlistId, watchlistsQuery.data])
+
+  useEffect(() => {
+    if (!selectedPortfolioId && portfoliosQuery.data?.items.length) {
+      setSelectedPortfolioId(portfoliosQuery.data.items[0].id)
+    }
+  }, [selectedPortfolioId, portfoliosQuery.data])
+
+  const addToWatchlistMutation = useMutation({
+    mutationFn: () => addWatchlistItem(token!, Number(selectedWatchlistId), ticker),
+    onSuccess: async () => {
+      setQuickActionMessage('Added to watchlist.')
+      await queryClient.invalidateQueries({ queryKey: ['watchlist-items'] })
+    },
+    onError: (error: Error) => setQuickActionMessage(error.message),
+  })
+
+  const addToPortfolioMutation = useMutation({
+    mutationFn: () =>
+      addPortfolioHolding(token!, Number(selectedPortfolioId), {
+        ticker,
+        quantity: 1,
+      }),
+    onSuccess: async () => {
+      setQuickActionMessage('Added to portfolio (qty 1).')
+      await queryClient.invalidateQueries({ queryKey: ['portfolio-holdings'] })
+    },
+    onError: (error: Error) => setQuickActionMessage(error.message),
+  })
 
   useEffect(() => {
     const isAllowed = liveIntervalOptions.some((intervalOption) => intervalOption === liveInterval)
@@ -157,6 +218,72 @@ export function StockDetailPage() {
               <span className="chip">Avg 30d volume: {formatNumber(detail.avg_volume_30d, 0)}</span>
               <span className="chip">52W range: ${formatNumber(detail.week_52_low)} → ${formatNumber(detail.week_52_high)}</span>
             </div>
+
+            {user && token && (
+              <div className="grid" style={{ gap: '0.75rem', marginTop: '0.9rem' }}>
+                <div className="search-row" style={{ alignItems: 'center' }}>
+                  <select
+                    className="select"
+                    value={selectedWatchlistId}
+                    onChange={(event) => setSelectedWatchlistId(Number(event.target.value))}
+                    disabled={!watchlistsQuery.data?.items.length}
+                    style={{ minWidth: '220px' }}
+                  >
+                    {!watchlistsQuery.data?.items.length ? (
+                      <option value="">No watchlists</option>
+                    ) : (
+                      watchlistsQuery.data.items.map((watchlist) => (
+                        <option key={watchlist.id} value={watchlist.id}>
+                          {watchlist.name}
+                        </option>
+                      ))
+                    )}
+                  </select>
+                  <button
+                    className="button secondary"
+                    type="button"
+                    disabled={!selectedWatchlistId || addToWatchlistMutation.isPending}
+                    onClick={() => addToWatchlistMutation.mutate()}
+                  >
+                    {addToWatchlistMutation.isPending ? 'Adding...' : 'Add to watchlist'}
+                  </button>
+                </div>
+
+                <div className="search-row" style={{ alignItems: 'center' }}>
+                  <select
+                    className="select"
+                    value={selectedPortfolioId}
+                    onChange={(event) => setSelectedPortfolioId(Number(event.target.value))}
+                    disabled={!portfoliosQuery.data?.items.length}
+                    style={{ minWidth: '220px' }}
+                  >
+                    {!portfoliosQuery.data?.items.length ? (
+                      <option value="">No portfolios</option>
+                    ) : (
+                      portfoliosQuery.data.items.map((portfolio) => (
+                        <option key={portfolio.id} value={portfolio.id}>
+                          {portfolio.name}
+                        </option>
+                      ))
+                    )}
+                  </select>
+                  <button
+                    className="button secondary"
+                    type="button"
+                    disabled={!selectedPortfolioId || addToPortfolioMutation.isPending}
+                    onClick={() => addToPortfolioMutation.mutate()}
+                  >
+                    {addToPortfolioMutation.isPending ? 'Adding...' : 'Add to portfolio'}
+                  </button>
+                </div>
+
+                {quickActionMessage && (
+                  <div className={quickActionMessage.includes('Added') ? 'muted' : 'negative'}>
+                    {quickActionMessage}
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className="stats-grid" style={{ marginTop: '1.1rem' }}>
               <Stat label="Latest Close" value={`$${formatNumber(detail.latest_close)}`} />

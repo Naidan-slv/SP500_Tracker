@@ -7,6 +7,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.api.routes.auth import get_current_user
+from app.company_overrides import COMPANY_NAME_OVERRIDES
 from app.database.dependencies import get_db
 from app.database.models import Portfolio, PortfolioHolding, Stock, User
 
@@ -40,6 +41,7 @@ class PortfolioListResponse(BaseModel):
 class HoldingPublic(BaseModel):
     id: int
     ticker: str
+    company_name: str | None
     quantity: float
     avg_cost: float | None
 
@@ -85,7 +87,7 @@ def _resolve_stock_from_input(db: Session, raw_input: str) -> Stock | None:
         return None
 
     compact_pattern = f"%{compact_search}%"
-    return db.scalar(
+    db_match = db.scalar(
         select(Stock)
         .where(
             or_(
@@ -96,6 +98,16 @@ def _resolve_stock_from_input(db: Session, raw_input: str) -> Stock | None:
         .order_by(Stock.ticker.asc())
         .limit(1)
     )
+    if db_match:
+        return db_match
+
+    for ticker, company_name in COMPANY_NAME_OVERRIDES.items():
+        if compact_search in _compact_input_text(company_name):
+            stock = db.get(Stock, ticker)
+            if stock:
+                return stock
+
+    return None
 
 
 def _get_user_portfolio_or_404(db: Session, portfolio_id: int, user_id: int) -> Portfolio:
@@ -186,9 +198,13 @@ def list_holdings(
 ):
     _get_user_portfolio_or_404(db, portfolio_id, current_user.id)
 
-    base_query = select(PortfolioHolding).where(PortfolioHolding.portfolio_id == portfolio_id)
+    base_query = (
+        select(PortfolioHolding, Stock.company_name)
+        .join(Stock, Stock.ticker == PortfolioHolding.ticker)
+        .where(PortfolioHolding.portfolio_id == portfolio_id)
+    )
     total = db.scalar(select(func.count()).select_from(base_query.subquery())) or 0
-    rows = db.scalars(
+    rows = db.execute(
         base_query.order_by(PortfolioHolding.id.asc()).offset(offset).limit(limit)
     ).all()
 
@@ -199,12 +215,13 @@ def list_holdings(
         offset=offset,
         items=[
             HoldingPublic(
-                id=row.id,
-                ticker=row.ticker,
-                quantity=float(row.quantity),
-                avg_cost=_to_float_or_none(row.avg_cost),
+                id=holding.id,
+                ticker=holding.ticker,
+                company_name=company_name or COMPANY_NAME_OVERRIDES.get(holding.ticker),
+                quantity=float(holding.quantity),
+                avg_cost=_to_float_or_none(holding.avg_cost),
             )
-            for row in rows
+            for holding, company_name in rows
         ],
     )
 
@@ -248,6 +265,7 @@ def add_holding(
     return HoldingPublic(
         id=holding.id,
         ticker=holding.ticker,
+        company_name=stock.company_name or COMPANY_NAME_OVERRIDES.get(stock.ticker),
         quantity=float(holding.quantity),
         avg_cost=_to_float_or_none(holding.avg_cost),
     )

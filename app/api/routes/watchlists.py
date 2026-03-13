@@ -7,6 +7,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.api.routes.auth import get_current_user
+from app.company_overrides import COMPANY_NAME_OVERRIDES
 from app.database.dependencies import get_db
 from app.database.models import Stock, StockPrice, User, Watchlist, WatchlistItem
 
@@ -38,6 +39,7 @@ class WatchlistListResponse(BaseModel):
 class WatchlistItemPublic(BaseModel):
     id: int
     ticker: str
+    company_name: str | None
     added_at: datetime
 
 
@@ -87,7 +89,7 @@ def _resolve_stock_from_input(db: Session, raw_input: str) -> Stock | None:
         return None
 
     compact_pattern = f"%{compact_search}%"
-    return db.scalar(
+    db_match = db.scalar(
         select(Stock)
         .where(
             or_(
@@ -98,6 +100,16 @@ def _resolve_stock_from_input(db: Session, raw_input: str) -> Stock | None:
         .order_by(Stock.ticker.asc())
         .limit(1)
     )
+    if db_match:
+        return db_match
+
+    for ticker, company_name in COMPANY_NAME_OVERRIDES.items():
+        if compact_search in _compact_input_text(company_name):
+            stock = db.get(Stock, ticker)
+            if stock:
+                return stock
+
+    return None
 
 
 @router.post("", response_model=WatchlistPublic, status_code=status.HTTP_201_CREATED)
@@ -179,9 +191,13 @@ def list_watchlist_items(
 ):
     _get_user_watchlist_or_404(db, watchlist_id, current_user.id)
 
-    base_query = select(WatchlistItem).where(WatchlistItem.watchlist_id == watchlist_id)
+    base_query = (
+        select(WatchlistItem, Stock.company_name)
+        .join(Stock, Stock.ticker == WatchlistItem.ticker)
+        .where(WatchlistItem.watchlist_id == watchlist_id)
+    )
     total = db.scalar(select(func.count()).select_from(base_query.subquery())) or 0
-    rows = db.scalars(
+    rows = db.execute(
         base_query.order_by(WatchlistItem.added_at.desc()).offset(offset).limit(limit)
     ).all()
 
@@ -191,8 +207,13 @@ def list_watchlist_items(
         limit=limit,
         offset=offset,
         items=[
-            WatchlistItemPublic(id=row.id, ticker=row.ticker, added_at=row.added_at)
-            for row in rows
+            WatchlistItemPublic(
+                id=item.id,
+                ticker=item.ticker,
+                company_name=company_name or COMPANY_NAME_OVERRIDES.get(item.ticker),
+                added_at=item.added_at,
+            )
+            for item, company_name in rows
         ],
     )
 
@@ -228,7 +249,12 @@ def add_watchlist_item(
         ) from exc
 
     db.refresh(item)
-    return WatchlistItemPublic(id=item.id, ticker=item.ticker, added_at=item.added_at)
+    return WatchlistItemPublic(
+        id=item.id,
+        ticker=item.ticker,
+        company_name=stock.company_name or COMPANY_NAME_OVERRIDES.get(stock.ticker),
+        added_at=item.added_at,
+    )
 
 
 @router.delete("/{watchlist_id}/items/{ticker}", response_model=MessageResponse)
@@ -407,7 +433,7 @@ def get_watchlist_insights(
 
     ticker_count = len(tickers)
     insights = [
-        _compute_ticker_insight(t, company_map.get(t), ticker_count, db)
+        _compute_ticker_insight(t, company_map.get(t) or COMPANY_NAME_OVERRIDES.get(t), ticker_count, db)
         for t in tickers
     ]
 

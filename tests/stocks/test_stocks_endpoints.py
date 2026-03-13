@@ -117,6 +117,22 @@ class TestStocksDiscover:
         assert body["total"] == 1
         assert body["items"][0]["ticker"] == "MSFT"
 
+    def test_list_stocks_search_uses_company_override_when_names_missing(
+        self,
+        client: TestClient,
+        db_session: Session,
+    ):
+        db_session.add(Stock(ticker="AAPL", company_name=None))
+        db_session.commit()
+
+        resp = client.get("/stocks?search=apple")
+        assert resp.status_code == 200
+        body = resp.json()
+
+        assert body["total"] == 1
+        assert body["items"][0]["ticker"] == "AAPL"
+        assert body["items"][0]["company_name"] == "Apple Inc."
+
 
 class TestStockHistory:
     def test_history_returns_points_for_known_ticker(self, client: TestClient, db_session: Session):
