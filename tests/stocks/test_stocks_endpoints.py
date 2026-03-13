@@ -269,6 +269,7 @@ class TestStockNews:
 
 class TestStockLive:
     def test_live_unknown_ticker_returns_404(self, client: TestClient):
+        stocks_routes._LIVE_CACHE.clear()
         resp = client.get("/stocks/ZZZZ/live")
         assert resp.status_code == 404
 
@@ -278,6 +279,7 @@ class TestStockLive:
         db_session: Session,
         monkeypatch,
     ):
+        stocks_routes._LIVE_CACHE.clear()
         seed_stock_data(db_session)
 
         def fake_fetch_yahoo_live_points(ticker: str, data_range, interval):
@@ -314,12 +316,47 @@ class TestStockLive:
         assert body["latest_close"] == 189.3
         assert len(body["items"]) == 2
 
+    def test_live_prefers_finnhub_when_available(
+        self,
+        client: TestClient,
+        db_session: Session,
+        monkeypatch,
+    ):
+        stocks_routes._LIVE_CACHE.clear()
+        seed_stock_data(db_session)
+
+        monkeypatch.setattr(stocks_routes, "_can_use_finnhub_live", lambda: True)
+
+        def fake_fetch_finnhub_live_points(ticker: str, data_range, interval):
+            return [
+                stocks_routes.StockLivePoint(
+                    timestamp=datetime(2024, 1, 10, 14, 30, tzinfo=timezone.utc),
+                    open=188.2,
+                    high=189.4,
+                    low=187.9,
+                    close=189.1,
+                    volume=120_000,
+                ),
+            ], None
+
+        monkeypatch.setattr(stocks_routes, "_fetch_finnhub_live_points", fake_fetch_finnhub_live_points)
+        monkeypatch.setattr(stocks_routes, "_fetch_yahoo_live_points", lambda *_args, **_kwargs: ([], "should not be called"))
+
+        resp = client.get("/stocks/AAPL/live?range=1d&interval=5m")
+        assert resp.status_code == 200
+        body = resp.json()
+
+        assert body["provider"] == "finnhub_candle"
+        assert body["total"] == 1
+        assert body["latest_close"] == 189.1
+
     def test_live_includes_provider_error(
         self,
         client: TestClient,
         db_session: Session,
         monkeypatch,
     ):
+        stocks_routes._LIVE_CACHE.clear()
         seed_stock_data(db_session)
 
         def fake_fetch_yahoo_live_points(ticker: str, data_range, interval):

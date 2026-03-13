@@ -19,6 +19,10 @@ from app.database.models import Stock, StockPrice
 
 router = APIRouter(prefix="/stocks", tags=["stocks"])
 
+_LIVE_CACHE_TTL_SECONDS = 45
+_LIVE_CACHE_STALE_SECONDS = 300
+_LIVE_CACHE: dict[tuple[str, str, str], dict[str, Any]] = {}
+
 
 class Timeframe(str, Enum):
     one_week = "1w"
@@ -444,6 +448,125 @@ def _fetch_yahoo_live_points(
     return items, None
 
 
+def _can_use_finnhub_live() -> bool:
+    return bool(settings.finnhub_api_key)
+
+
+def _finnhub_resolution(interval: LiveInterval) -> str:
+    mapping = {
+        LiveInterval.one_minute: "1",
+        LiveInterval.two_minutes: "1",
+        LiveInterval.five_minutes: "5",
+        LiveInterval.fifteen_minutes: "15",
+        LiveInterval.thirty_minutes: "30",
+        LiveInterval.sixty_minutes: "60",
+    }
+    return mapping[interval]
+
+
+def _finnhub_range_days(data_range: LiveRange) -> int:
+    mapping = {
+        LiveRange.one_day: 2,
+        LiveRange.five_days: 7,
+        LiveRange.one_month: 31,
+    }
+    return mapping[data_range]
+
+
+def _fetch_finnhub_live_points(
+    ticker: str,
+    data_range: LiveRange,
+    interval: LiveInterval,
+) -> tuple[list[StockLivePoint], str | None]:
+    if not _can_use_finnhub_live():
+        return [], "Finnhub API key not configured"
+
+    now_utc = datetime.now(timezone.utc)
+    from_utc = now_utc - timedelta(days=_finnhub_range_days(data_range))
+
+    try:
+        response = httpx.get(
+            "https://finnhub.io/api/v1/stock/candle",
+            params={
+                "symbol": ticker,
+                "resolution": _finnhub_resolution(interval),
+                "from": int(from_utc.timestamp()),
+                "to": int(now_utc.timestamp()),
+                "token": settings.finnhub_api_key,
+            },
+            timeout=10.0,
+        )
+        response.raise_for_status()
+        payload = response.json()
+    except Exception as exc:
+        return [], f"Finnhub live provider unavailable: {exc}"
+
+    status_value = payload.get("s") if isinstance(payload, dict) else None
+    if status_value != "ok":
+        return [], "Finnhub live provider returned no chart data"
+
+    timestamps = payload.get("t") or []
+    opens = payload.get("o") or []
+    highs = payload.get("h") or []
+    lows = payload.get("l") or []
+    closes = payload.get("c") or []
+    volumes = payload.get("v") or []
+
+    items: list[StockLivePoint] = []
+    for idx, ts in enumerate(timestamps):
+        if idx >= len(closes) or closes[idx] is None:
+            continue
+
+        try:
+            timestamp = datetime.fromtimestamp(int(ts), tz=timezone.utc)
+        except Exception:
+            continue
+
+        items.append(
+            StockLivePoint(
+                timestamp=timestamp,
+                open=float(opens[idx]) if idx < len(opens) and opens[idx] is not None else None,
+                high=float(highs[idx]) if idx < len(highs) and highs[idx] is not None else None,
+                low=float(lows[idx]) if idx < len(lows) and lows[idx] is not None else None,
+                close=float(closes[idx]) if closes[idx] is not None else None,
+                volume=int(volumes[idx]) if idx < len(volumes) and volumes[idx] is not None else None,
+            )
+        )
+
+    return items, None
+
+
+def _live_cache_get(
+    cache_key: tuple[str, str, str],
+    max_age_seconds: int,
+) -> dict[str, Any] | None:
+    entry = _LIVE_CACHE.get(cache_key)
+    if not entry:
+        return None
+
+    fetched_at = entry.get("fetched_at")
+    if not isinstance(fetched_at, datetime):
+        return None
+
+    age_seconds = (datetime.now(timezone.utc) - fetched_at).total_seconds()
+    if age_seconds > max_age_seconds:
+        return None
+
+    return entry
+
+
+def _live_cache_set(
+    cache_key: tuple[str, str, str],
+    provider: str,
+    items: list[StockLivePoint],
+) -> None:
+    _LIVE_CACHE[cache_key] = {
+        "provider": provider,
+        "items": items,
+        "fetched_at": datetime.now(timezone.utc),
+    }
+
+
 @router.get("", response_model=StockListResponse)
 async def list_stocks(
     search: str | None = Query(default=None, min_length=1, max_length=64),
@@ -759,11 +882,64 @@ async def get_stock_live_data(
 
     company_name, logo_url = await _ensure_stock_profile(stock, db)
 
-    items, provider_error = _fetch_yahoo_live_points(
-        ticker=normalized_ticker,
-        data_range=data_range,
-        interval=interval,
-    )
+    cache_key = (normalized_ticker, data_range.value, interval.value)
+    fresh_cache = _live_cache_get(cache_key, _LIVE_CACHE_TTL_SECONDS)
+    if fresh_cache:
+        cached_items = fresh_cache.get("items") or []
+        latest_cached_item = cached_items[-1] if cached_items else None
+        return StockLiveResponse(
+            ticker=normalized_ticker,
+            company_name=company_name,
+            logo_url=logo_url,
+            range=data_range,
+            interval=interval,
+            provider=str(fresh_cache.get("provider") or "cache"),
+            provider_error=None,
+            total=len(cached_items),
+            latest_timestamp=latest_cached_item.timestamp if latest_cached_item else None,
+            latest_close=latest_cached_item.close if latest_cached_item else None,
+            items=cached_items,
+        )
+
+    provider_errors: list[str] = []
+    provider = "yahoo_chart"
+    items: list[StockLivePoint] = []
+
+    if _can_use_finnhub_live():
+        finnhub_items, finnhub_error = _fetch_finnhub_live_points(
+            ticker=normalized_ticker,
+            data_range=data_range,
+            interval=interval,
+        )
+        if finnhub_items:
+            provider = "finnhub_candle"
+            items = finnhub_items
+        elif finnhub_error:
+            provider_errors.append(finnhub_error)
+
+    if not items:
+        yahoo_items, yahoo_error = _fetch_yahoo_live_points(
+            ticker=normalized_ticker,
+            data_range=data_range,
+            interval=interval,
+        )
+        if yahoo_items:
+            provider = "yahoo_chart"
+            items = yahoo_items
+        elif yahoo_error:
+            provider_errors.append(yahoo_error)
+
+    if items:
+        _live_cache_set(cache_key, provider, items)
+        provider_error = None
+    else:
+        stale_cache = _live_cache_get(cache_key, _LIVE_CACHE_STALE_SECONDS)
+        if stale_cache:
+            provider = f"{stale_cache.get('provider')}_stale"
+            items = stale_cache.get("items") or []
+            provider_error = "; ".join(provider_errors + ["Returning cached stale live data"])
+        else:
+            provider_error = "; ".join(provider_errors) if provider_errors else None
 
     latest_item = items[-1] if items else None
 
@@ -773,7 +949,7 @@ async def get_stock_live_data(
         logo_url=logo_url,
         range=data_range,
         interval=interval,
-        provider="yahoo_chart",
+        provider=provider,
         provider_error=provider_error,
         total=len(items),
         latest_timestamp=latest_item.timestamp if latest_item else None,
