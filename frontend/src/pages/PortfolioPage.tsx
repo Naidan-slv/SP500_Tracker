@@ -380,7 +380,7 @@ export function PortfolioPage() {
                     </div>
                   </div>
                 </div>
-                <PortfolioPieChart holdings={holdingsQuery.data?.items ?? []} />
+                <PortfolioPieChart holdings={holdingsQuery.data?.items ?? []} totalValue={portfolioStats.estimatedCost} />
               </div>
 
               <div className="card table-shell table-wrap">

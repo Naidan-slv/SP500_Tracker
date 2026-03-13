@@ -52,7 +52,7 @@ select {
 .app-shell {
   min-height: 100vh;
   position: relative;
-  overflow: hidden;
+  overflow-x: hidden;
 }
 
 .app-background-orb {
@@ -181,6 +181,7 @@ select {
 
 .grid-2 {
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  overflow: visible;
 }
 
 .grid-4 {

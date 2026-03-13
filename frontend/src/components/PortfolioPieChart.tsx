@@ -34,6 +34,7 @@ type HoldingSlice = {
 
 type Props = {
   holdings: HoldingSlice[]
+  totalValue: number
 }
 
 function renderActiveShape(props: any) {
@@ -64,13 +65,13 @@ function renderActiveShape(props: any) {
   )
 }
 
-export function PortfolioPieChart({ holdings }: Props) {
+export function PortfolioPieChart({ holdings, totalValue }: Props) {
   const [activeIndex, setActiveIndex] = useState<number | null>(null)
 
   const data = useMemo(() => {
     if (!holdings.length) return []
 
-    const totalValue = holdings.reduce((sum, h) => {
+    const sumValues = holdings.reduce((sum, h) => {
       const value = h.quantity * (h.avg_cost ?? 0)
       return sum + (value > 0 ? value : h.quantity)
     }, 0)
@@ -82,10 +83,14 @@ export function PortfolioPieChart({ holdings }: Props) {
         ticker: h.ticker,
         company_name: h.company_name,
         value: effectiveValue,
-        pct: totalValue > 0 ? (effectiveValue / totalValue) * 100 : 0,
+        pct: sumValues > 0 ? (effectiveValue / sumValues) * 100 : 0,
       }
     })
   }, [holdings])
+
+  const formattedTotal = totalValue >= 1000
+    ? `$${(totalValue / 1000).toFixed(1)}k`
+    : `$${totalValue.toFixed(2)}`
 
   if (!holdings.length) {
     return (
@@ -108,8 +113,8 @@ export function PortfolioPieChart({ holdings }: Props) {
             </PieChart>
           </ResponsiveContainer>
           <div className="pie-center-label">
-            <div className="pie-center-value">0</div>
-            <div className="pie-center-desc">holdings</div>
+            <div className="pie-center-value">$0</div>
+            <div className="pie-center-desc">total value</div>
           </div>
         </div>
         <div className="pie-legend-empty">Add holdings to see allocation breakdown.</div>
@@ -164,9 +169,9 @@ export function PortfolioPieChart({ holdings }: Props) {
           </PieChart>
         </ResponsiveContainer>
         <div className="pie-center-label">
-          <div className="pie-center-value">{holdings.length}</div>
+          <div className="pie-center-value">{formattedTotal}</div>
           <div className="pie-center-desc">
-            {holdings.length === 1 ? 'holding' : 'holdings'}
+            {holdings.length} {holdings.length === 1 ? 'holding' : 'holdings'}
           </div>
         </div>
       </div>

@@ -9,6 +9,17 @@ Full-stack stock tracking platform for COMP3011 Web Services coursework.
 
 ---
 
+## Documentation
+
+| Document | Location |
+|----------|----------|
+| API Documentation | [`docs/API_DOCUMENTATION.md`](docs/API_DOCUMENTATION.md) |
+| Technical Report | [`docs/TECHNICAL_REPORT.md`](docs/TECHNICAL_REPORT.md) |
+| Presentation Slides | [`docs/PRESENTATION_SLIDES.md`](docs/PRESENTATION_SLIDES.md) |
+| AI Development Log | [`AI_DEVELOPMENT_LOG.md`](AI_DEVELOPMENT_LOG.md) |
+
+---
+
 ## What It Does
 
 - Historical OHLCV data for 49 tickers (230,111 rows, 2006–2026)
@@ -198,5 +209,5 @@ For the frontend, set `VITE_API_BASE_URL=https://sp500-tracker.onrender.com` whe
 - **TanStack Query** — client-side caching and async state management
 - **React Router** — frontend routing
 - **Recharts** — historical and live chart rendering
-- **pytest** — backend test suite (`142` tests)
+- **pytest** — backend test suite (`127` tests)
 - **Render** — backend deployment platform

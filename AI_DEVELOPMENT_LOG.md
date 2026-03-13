@@ -886,3 +886,63 @@ This session added the two most visible "intelligence" features of the product: 
 - Frontend production build passed (`cd frontend && npm run build`)
 - Both commits pushed to `main` and deployed
 
+
+---
+
+### Entry 019 — UI Polish, Portfolio Value Display & Submission Documents
+**Date:** 2025-03-09  
+**Phase:** Polishing, Documentation & Submission Preparation
+
+#### What I Asked the AI
+- The autocomplete suggestion dropdown was STILL covering the cards below it despite the round-1 z-index fix. Asked the AI to fix it properly this time.
+- Requested a total portfolio value display near the pie chart to give users an at-a-glance dollar figure.
+- Asked the AI to read the full AI Development Log and the CWK brief, then create ALL remaining submission deliverables to an exceptional standard:
+  1. API Documentation (comprehensive, with examples for every endpoint)
+  2. Technical Report (max 5 pages, covering stack justification, architecture, challenges, testing, GenAI analysis)
+  3. Presentation Slides (content for 5-minute presentation covering all required topics)
+- Emphasised: "Ensure that every single thing is done to an exceptional degree"
+
+#### What the AI Produced
+
+**UI Fixes:**
+- Changed `.app-shell` CSS from `overflow: hidden` to `overflow-x: hidden` — the vertical overflow was clipping the suggestion dropdown that extends below its parent card
+- Added `overflow: visible` to `.grid-2` containers so child elements (dropdowns) can extend beyond the grid cell boundaries
+- These changes complement the round-1 z-index fixes (`.suggestions-card` z-index:50, `.search-box` z-index:50)
+
+**Portfolio Total Value:**
+- Updated `PortfolioPieChart` component to accept a `totalValue` prop
+- Renamed the internal `totalValue` variable to `sumValues` to avoid naming conflicts
+- Added formatted dollar display in the donut centre: shows `$X.Xk` for values ≥ $1,000 or `$X.XX` for smaller amounts
+- Centre label now shows dollar total with holding count below (previously just showed holding count)
+- Empty state shows `$0` with "total value" label
+- Updated `PortfolioPage` to pass `portfolioStats.estimatedCost` as the `totalValue` prop
+
+**Submission Documents:**
+- `docs/API_DOCUMENTATION.md` — comprehensive API documentation covering all 23 endpoints across 4 resource groups, with:
+  - Full endpoint table, request/response schemas, example `curl` commands and JSON responses
+  - Authentication workflow, error handling guide, pagination explanation
+  - Caching strategy details, environment variables reference
+- `docs/TECHNICAL_REPORT.md` — 5-page technical report covering:
+  - Technology stack justification (FastAPI, React, PostgreSQL, JWT, etc.)
+  - System architecture with ASCII diagram
+  - Backend and frontend structure
+  - Caching strategy
+  - Challenges and lessons learned (API reliability, fuzzy search, CSS layering)
+  - Testing approach (127 tests, in-memory SQLite, dependency injection)
+  - Limitations and future improvements
+  - GenAI declaration with critical analysis
+- `docs/PRESENTATION_SLIDES.md` — 11-slide presentation content:
+  - Title, project overview, tech stack, architecture, API overview, feature highlights, version control, testing, challenges & GenAI, future work, summary & deliverables checklist
+- Updated `README.md` with documentation links section and fixed test count (142 → 127)
+
+#### My Decisions and Overrides
+- Confirmed that changing `overflow: hidden` to `overflow-x: hidden` was the correct root-cause fix (round 1 only addressed z-index symptoms)
+- Chose compact dollar formatting ($1.2k, $45.50) over full precision to keep the donut centre clean
+- Decided to create all documents as Markdown in the repo for version control, to be converted to PDF/PPTX for submission
+- Kept the technical report within 5-page limit as required by the brief
+
+#### Verified Outcomes
+- TypeScript compilation passed (`npx tsc --noEmit` — zero errors)
+- Full test suite passed: `127 passed` in 4.17 seconds
+- All three submission documents created in `docs/` directory
+- README updated with documentation links and correct test count
