@@ -733,3 +733,40 @@ This session added the two most visible "intelligence" features of the product: 
 - Local backfill run completed:
 	- `49` stock rows updated
 	- unresolved local company names reduced to `0`
+
+---
+
+### Entry 015 — Live Data Reliability Upgrade (Finnhub-First with Yahoo Fallback + Cache)
+**Date:** 13 March 2026  
+**Commit(s):** `f617a08` (`feat(live): add Finnhub-first fallback with cache for intraday data`)
+
+#### What Was Done
+- Refactored `GET /stocks/{ticker}/live` in `app/api/routes/stocks.py` to support provider failover:
+	- Primary provider: Finnhub candles (when `FINNHUB_API_KEY` is configured)
+	- Secondary provider: Yahoo chart endpoint fallback
+- Added short in-memory caching for live requests:
+	- Fresh cache window: 45 seconds
+	- Stale cache window: 5 minutes (used if providers fail)
+- Added provider-selection metadata in responses so frontend can surface which source served data
+- Preserved previous response contract while improving resilience under third-party rate limits
+
+#### What I Asked the AI
+- To replace the fragile Yahoo-only live flow with a more robust alternative
+- To keep the live endpoint usable even when external provider requests are throttled
+
+#### What the AI Produced
+- Finnhub resolution/range mapping helpers for intraday candle retrieval
+- Fallback orchestration logic (Finnhub → Yahoo → stale cache)
+- Cache helpers to reduce repeated external calls and absorb temporary provider outages
+- Updated tests to verify provider preference and live endpoint behavior under the new strategy
+
+#### My Decisions and Overrides
+- Chose Finnhub as primary live source because it aligns with the project’s existing provider direction
+- Kept Yahoo as backup for compatibility and continuity
+- Accepted in-memory cache as a pragmatic coursework-level reliability layer without introducing Redis complexity
+
+#### Verified Outcomes
+- Targeted live/stocks endpoint suite passed after implementation:
+	- `pytest -q tests/stocks/test_stocks_endpoints.py`
+	- Result: `18 passed`
+- Changes pushed to `main` under commit `f617a08`
