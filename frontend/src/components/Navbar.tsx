@@ -21,7 +21,10 @@ export function Navbar() {
 
         <nav className="nav-links">
           <NavLink to="/" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`} end>
-            Discover
+            Home
+          </NavLink>
+          <NavLink to="/discover" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
+            Explore
           </NavLink>
           <NavLink
             to="/watchlists"

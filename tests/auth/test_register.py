@@ -42,6 +42,24 @@ class TestRegisterSuccess:
         )
         assert "verify" in resp.json()["message"].lower()
 
+    def test_register_response_includes_verification_link(self, client: TestClient):
+        resp = client.post(
+            "/auth/register",
+            json={"email": "link_user@example.com", "password": "Password123"},
+        )
+        body = resp.json()
+        assert body.get("verification_link")
+        assert "/verify-email?token=" in body["verification_link"]
+
+    def test_register_message_when_email_sent(self, client: TestClient, monkeypatch: pytest.MonkeyPatch):
+        monkeypatch.setattr("app.api.routes.auth.send_verification_email", lambda *_args, **_kwargs: True)
+
+        resp = client.post(
+            "/auth/register",
+            json={"email": "sent_user@example.com", "password": "Password123"},
+        )
+        assert "email sent" in resp.json()["message"].lower()
+
     def test_register_email_is_normalised_to_lowercase(self, client: TestClient):
         """Upper-case email should be normalised and stored in lower-case."""
         resp = client.post(

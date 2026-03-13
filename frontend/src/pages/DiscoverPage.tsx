@@ -15,6 +15,41 @@ const filters: Array<{ value: MarketFilter; label: string }> = [
   { value: 'middle-east', label: 'Middle East' },
 ]
 
+function StockPreviewCard({
+  ticker,
+  companyName,
+  logoUrl,
+  onMouseEnter,
+}: {
+  ticker: string
+  companyName: string | null
+  logoUrl: string | null
+  onMouseEnter: () => void
+}) {
+  return (
+    <Link to={`/stocks/${ticker}`} className="stock-card" onMouseEnter={onMouseEnter}>
+      <div className="stock-card-header">
+        <div className="stock-card-identity">
+          {logoUrl ? (
+            <img className="stock-logo" src={logoUrl} alt={ticker} onError={(e) => ((e.target as HTMLImageElement).style.display = 'none')} />
+          ) : (
+            <div className="stock-logo-placeholder">{ticker.slice(0, 3)}</div>
+          )}
+          <div>
+            <div className="stock-ticker">{ticker}</div>
+            <div className="stock-name">{companyName ?? 'Unknown company'}</div>
+          </div>
+        </div>
+        <span className="market-badge">{getMarketLabel(ticker)}</span>
+      </div>
+
+      <div className="muted" style={{ fontSize: '0.86rem' }}>
+        Open for full analytics, price history, live market activity and news.
+      </div>
+    </Link>
+  )
+}
+
 export function DiscoverPage() {
   const apiBaseUrl = getApiBaseUrl()
   const queryClient = useQueryClient()
@@ -233,55 +268,17 @@ export function DiscoverPage() {
             {!pagedStocks.length ? (
               <div className="empty-state">No stocks match the current search and market filter.</div>
             ) : (
-              <table>
-                <thead>
-                  <tr>
-                    <th>Ticker</th>
-                    <th>Market</th>
-                    <th>Company</th>
-                    <th>Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {pagedStocks.map((stock) => (
-                    <tr key={stock.ticker}>
-                      <td>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                          {stock.logo_url && (
-                            <img
-                              src={stock.logo_url}
-                              alt={stock.ticker}
-                              style={{
-                                width: '32px',
-                                height: '32px',
-                                borderRadius: '4px',
-                                objectFit: 'contain',
-                                backgroundColor: '#f0f0f0',
-                              }}
-                              onError={(e) => {
-                                // Fallback if logo fails to load
-                                (e.target as HTMLImageElement).style.display = 'none'
-                              }}
-                            />
-                          )}
-                          <strong>{stock.ticker}</strong>
-                        </div>
-                      </td>
-                      <td>{getMarketLabel(stock.ticker)}</td>
-                      <td>{stock.company_name ?? '—'}</td>
-                      <td>
-                        <Link
-                          to={`/stocks/${stock.ticker}`}
-                          className="button secondary"
-                          onMouseEnter={() => prefetchStock(stock.ticker)}
-                        >
-                          Open
-                        </Link>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <div className="stock-cards-grid">
+                {pagedStocks.map((stock) => (
+                  <StockPreviewCard
+                    key={stock.ticker}
+                    ticker={stock.ticker}
+                    companyName={stock.company_name}
+                    logoUrl={stock.logo_url}
+                    onMouseEnter={() => prefetchStock(stock.ticker)}
+                  />
+                ))}
+              </div>
             )}
 
             <div className="pager-row">

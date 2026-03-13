@@ -26,6 +26,7 @@ function pctClass(value: number | null): string {
 export function StockDetailPage() {
   const { ticker = '' } = useParams<{ ticker: string }>()
 
+  const [activePanel, setActivePanel] = useState<'overview' | 'live' | 'news'>('overview')
   const [timeframe, setTimeframe] = useState<'1w' | '1m' | '3m' | '6m' | '1y' | '5y' | 'max'>('6m')
   const [newsTimeframe, setNewsTimeframe] = useState<'1w' | '1m' | '3m' | '6m' | '1y' | '5y' | 'max'>('1w')
   const [liveRange, setLiveRange] = useState<'1d' | '5d' | '1mo'>('1d')
@@ -60,16 +61,16 @@ export function StockDetailPage() {
   const newsQuery = useQuery({
     queryKey: ['stock-news', ticker, newsTimeframe],
     queryFn: () => fetchStockNews(ticker, newsTimeframe, 10),
-    enabled: Boolean(ticker),
+    enabled: Boolean(ticker) && activePanel === 'news',
     placeholderData: (previous) => previous,
   })
 
   const liveQuery = useQuery({
     queryKey: ['stock-live', ticker, liveRange, liveInterval],
     queryFn: () => fetchStockLive(ticker, liveRange, liveInterval),
-    enabled: Boolean(ticker),
+    enabled: Boolean(ticker) && activePanel === 'live',
     placeholderData: (previous) => previous,
-    refetchInterval: 60_000,
+    refetchInterval: activePanel === 'live' ? 60_000 : false,
   })
 
   const detail = detailQuery.data ?? null
@@ -110,7 +111,7 @@ export function StockDetailPage() {
   return (
     <section className="grid" style={{ gap: '1rem' }}>
       <div>
-        <Link to="/" className="back-link">
+        <Link to="/discover" className="back-link">
           ← Back to discover
         </Link>
       </div>
@@ -121,39 +122,40 @@ export function StockDetailPage() {
       {!initialLoading && !error && detail && (
         <>
           <div className="card hero-card">
-            <div className="eyebrow">Ticker deep dive</div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', marginBottom: '1rem' }}>
-              {detail.logo_url && (
+            <div className="eyebrow">📌 Investment Snapshot</div>
+            <div className="detail-hero">
+              {detail.logo_url ? (
                 <img
                   src={detail.logo_url}
                   alt={detail.ticker}
-                  style={{
-                    width: '80px',
-                    height: '80px',
-                    borderRadius: '8px',
-                    objectFit: 'contain',
-                    backgroundColor: '#f5f5f5',
-                  }}
+                  className="detail-logo"
                   onError={(e) => {
                     (e.target as HTMLImageElement).style.display = 'none'
                   }}
                 />
+              ) : (
+                <div className="detail-logo-placeholder">{detail.ticker.slice(0, 3)}</div>
               )}
-              <div>
+
+              <div className="detail-hero-text">
                 <h1 className="hero-title" style={{ fontSize: 'clamp(1.8rem, 3vw, 2.7rem)', margin: 0 }}>
                   {detail.ticker}
                 </h1>
-                {detail.company_name && (
-                  <p style={{ fontSize: '1.1rem', color: '#666', margin: '0.5rem 0 0 0' }}>
-                    {detail.company_name}
-                  </p>
-                )}
+                <p className="detail-company">{detail.company_name ?? 'Company name unavailable'}</p>
+
+                <div className="detail-price-row">
+                  <div className="detail-price">${formatNumber(detail.latest_close)}</div>
+                  <span className={`change-pill ${detail.change_pct_1d === null ? 'neutral' : detail.change_pct_1d >= 0 ? 'positive' : 'negative'}`}>
+                    {detail.change_pct_1d === null ? 'No daily move data' : `${detail.change_pct_1d >= 0 ? '+' : ''}${formatNumber(detail.change_pct_1d)}% today`}
+                  </span>
+                </div>
               </div>
             </div>
             <div className="hero-meta">
               <span className="chip">As of: {detail.latest_date ?? '—'}</span>
               <span className="chip">Latest close: ${formatNumber(detail.latest_close)}</span>
               <span className="chip">Avg 30d volume: {formatNumber(detail.avg_volume_30d, 0)}</span>
+              <span className="chip">52W range: ${formatNumber(detail.week_52_low)} → ${formatNumber(detail.week_52_high)}</span>
             </div>
 
             <div className="stats-grid" style={{ marginTop: '1.1rem' }}>
@@ -166,9 +168,33 @@ export function StockDetailPage() {
               <Stat label="1M Change" value={formatNumber(detail.change_pct_1m)} suffix="%" className={pctClass(detail.change_pct_1m)} />
               <Stat label="1Y Change" value={formatNumber(detail.change_pct_1y)} suffix="%" className={pctClass(detail.change_pct_1y)} />
             </div>
+
+            <div className="section-tabs" style={{ marginTop: '1rem' }}>
+              <button
+                type="button"
+                className={`section-tab ${activePanel === 'overview' ? 'active' : ''}`}
+                onClick={() => setActivePanel('overview')}
+              >
+                Overview
+              </button>
+              <button
+                type="button"
+                className={`section-tab ${activePanel === 'live' ? 'active' : ''}`}
+                onClick={() => setActivePanel('live')}
+              >
+                Live Market
+              </button>
+              <button
+                type="button"
+                className={`section-tab ${activePanel === 'news' ? 'active' : ''}`}
+                onClick={() => setActivePanel('news')}
+              >
+                News
+              </button>
+            </div>
           </div>
 
-          <div className="card">
+          {activePanel === 'overview' && <div className="card">
             <div className="panel-header">
               <div>
                 <h3 className="section-title">Price History</h3>
@@ -198,9 +224,9 @@ export function StockDetailPage() {
                 <StockHistoryChart data={chartData} />
               </Suspense>
             </div>
-          </div>
+          </div>}
 
-          <div className="card">
+          {activePanel === 'live' && <div className="card">
             <div className="panel-header">
               <div>
                 <h3 className="section-title">Live Market Activity</h3>
@@ -262,9 +288,9 @@ export function StockDetailPage() {
                 Provider note: {liveQuery.data.provider_error}
               </div>
             )}
-          </div>
+          </div>}
 
-          <div className="card">
+          {activePanel === 'news' && <div className="card">
             <div className="panel-header">
               <div>
                 <h3 className="section-title">Latest News</h3>
@@ -322,7 +348,7 @@ export function StockDetailPage() {
                 Provider note: {newsQuery.data.provider_error}
               </div>
             )}
-          </div>
+          </div>}
         </>
       )}
     </section>

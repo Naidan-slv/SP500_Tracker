@@ -3,10 +3,12 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 
 import { Navbar } from './components/Navbar'
 
+const HomePage = lazy(() => import('./pages/HomePage').then((module) => ({ default: module.HomePage })))
 const DiscoverPage = lazy(() => import('./pages/DiscoverPage').then((module) => ({ default: module.DiscoverPage })))
 const StockDetailPage = lazy(() => import('./pages/StockDetailPage').then((module) => ({ default: module.StockDetailPage })))
 const WatchlistsPage = lazy(() => import('./pages/WatchlistsPage').then((module) => ({ default: module.WatchlistsPage })))
 const PortfolioPage = lazy(() => import('./pages/PortfolioPage').then((module) => ({ default: module.PortfolioPage })))
+const VerifyEmailPage = lazy(() => import('./pages/VerifyEmailPage').then((module) => ({ default: module.VerifyEmailPage })))
 
 function RouteFallback() {
   return <div className="empty-state">Loading page...</div>
@@ -21,11 +23,13 @@ function App() {
       <main className="page-container">
         <Suspense fallback={<RouteFallback />}>
           <Routes>
-            <Route path="/" element={<DiscoverPage />} />
+            <Route path="/" element={<HomePage />} />
+            <Route path="/discover" element={<DiscoverPage />} />
             <Route path="/stocks/:ticker" element={<StockDetailPage />} />
             <Route path="/watchlists" element={<WatchlistsPage />} />
             <Route path="/portfolio" element={<PortfolioPage />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
+            <Route path="/verify-email" element={<VerifyEmailPage />} />
+            <Route path="*" element={<Navigate to="/discover" replace />} />
           </Routes>
         </Suspense>
       </main>

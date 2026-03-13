@@ -12,6 +12,7 @@ class RegisterResponse(BaseModel):
     message: str
     user_id: int
     verification_token: str | None = None
+    verification_link: str | None = None
 
 
 class LoginRequest(BaseModel):

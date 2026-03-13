@@ -157,29 +157,56 @@ def _safe_pct(current: float | None, prior: float | None) -> float | None:
     return round((current - prior) / prior * 100, 4)
 
 
-async def _fetch_company_logo_url(ticker: str) -> str | None:
-    """
-    Fetch company logo URL from Finnhub's free endpoint.
-    Returns a logo URL or None if unavailable.
-    """
+async def _fetch_company_profile(ticker: str) -> tuple[str | None, str | None]:
     try:
-        # Finnhub free endpoint - no key required for basic profile data
-        response = httpx.get(
-            f"https://finnhub.io/api/v1/stock/profile2?symbol={ticker}",
-            timeout=5.0,
-        )
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            response = await client.get(
+                "https://finnhub.io/api/v1/stock/profile2",
+                params={"symbol": ticker},
+            )
         response.raise_for_status()
         data = response.json()
-        if isinstance(data, dict) and "logo" in data:
-            logo = data["logo"]
-            if logo and isinstance(logo, str):
-                return logo
+        if not isinstance(data, dict):
+            return None, None
+
+        company_name = data.get("name") if isinstance(data.get("name"), str) else None
+        logo_url = data.get("logo") if isinstance(data.get("logo"), str) else None
+
+        if logo_url and not logo_url.strip():
+            logo_url = None
+        if company_name and not company_name.strip():
+            company_name = None
+
+        return company_name, logo_url
     except Exception:
-        pass
-    
-    # Fallback: construct a generic logo URL using a reliable service
-    # Using clearbit logo service as fallback
-    return f"https://logo.clearbit.com/{ticker.lower().replace('.', '')}.com"
+        return None, None
+
+
+async def _ensure_stock_profile(stock: Stock, db: Session) -> tuple[str | None, str | None]:
+    company_name = stock.company_name
+    logo_url = stock.logo_url
+
+    if company_name and logo_url:
+        return company_name, logo_url
+
+    fetched_name, fetched_logo = await _fetch_company_profile(stock.ticker)
+
+    updated = False
+    if not company_name and fetched_name:
+        stock.company_name = fetched_name
+        company_name = fetched_name
+        updated = True
+    if not logo_url and fetched_logo:
+        stock.logo_url = fetched_logo
+        logo_url = fetched_logo
+        updated = True
+
+    if updated:
+        db.add(stock)
+        db.commit()
+        db.refresh(stock)
+
+    return company_name, logo_url
 
 
 def _timeframe_start_datetime(timeframe: Timeframe, now_utc: datetime) -> datetime:
@@ -304,7 +331,7 @@ def _fetch_yahoo_live_points(
 
 
 @router.get("", response_model=StockListResponse)
-def list_stocks(
+async def list_stocks(
     search: str | None = Query(default=None, min_length=1, max_length=64),
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
@@ -324,11 +351,18 @@ def list_stocks(
     total = db.scalar(select(func.count()).select_from(base_query.subquery())) or 0
     rows = db.scalars(base_query.order_by(Stock.ticker.asc()).limit(limit).offset(offset)).all()
 
+    hydrated_items: list[StockListItem] = []
+    for row in rows:
+        company_name, logo_url = await _ensure_stock_profile(row, db)
+        hydrated_items.append(
+            StockListItem(ticker=row.ticker, company_name=company_name, logo_url=logo_url)
+        )
+
     return StockListResponse(
         total=total,
         limit=limit,
         offset=offset,
-        items=[StockListItem(ticker=row.ticker, company_name=row.company_name, logo_url=row.logo_url) for row in rows],
+        items=hydrated_items,
     )
 
 
@@ -364,13 +398,12 @@ async def get_stock_detail(
         .limit(260)
     ).all()
 
-    # Fetch logo URL from external API
-    logo_url = await _fetch_company_logo_url(normalized_ticker)
+    company_name, logo_url = await _ensure_stock_profile(stock, db)
 
     if not rows:
         return StockDetailResponse(
             ticker=normalized_ticker,
-            company_name=stock.company_name,
+            company_name=company_name,
             logo_url=logo_url,
             latest_date=None,
             latest_close=None,
@@ -401,7 +434,7 @@ async def get_stock_detail(
 
     return StockDetailResponse(
         ticker=normalized_ticker,
-        company_name=stock.company_name,
+        company_name=company_name,
         logo_url=logo_url,
         latest_date=latest.date,
         latest_close=round(closes[0], 4),
@@ -418,7 +451,7 @@ async def get_stock_detail(
 
 
 @router.get("/{ticker}/history", response_model=StockHistoryResponse)
-def get_stock_history(
+async def get_stock_history(
     ticker: str,
     timeframe: Timeframe | None = Query(default=None),
     start_date: date | None = Query(default=None),
@@ -435,6 +468,8 @@ def get_stock_history(
             detail=f"Ticker '{normalized_ticker}' was not found",
         )
 
+    company_name, logo_url = await _ensure_stock_profile(stock, db)
+
     if timeframe and (start_date or end_date):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -448,8 +483,8 @@ def get_stock_history(
     if not max_available_date:
         return StockHistoryResponse(
             ticker=normalized_ticker,
-            company_name=stock.company_name,
-            logo_url=stock.logo_url,
+            company_name=company_name,
+            logo_url=logo_url,
             timeframe=timeframe,
             start_date=start_date,
             end_date=end_date,
@@ -489,8 +524,8 @@ def get_stock_history(
 
     return StockHistoryResponse(
         ticker=normalized_ticker,
-        company_name=stock.company_name,
-        logo_url=stock.logo_url,
+        company_name=company_name,
+        logo_url=logo_url,
         timeframe=timeframe,
         start_date=effective_start_date,
         end_date=effective_end_date,
@@ -513,7 +548,7 @@ def get_stock_history(
 
 
 @router.get("/{ticker}/news", response_model=StockNewsResponse)
-def get_stock_news(
+async def get_stock_news(
     ticker: str,
     timeframe: Timeframe = Query(default=Timeframe.one_week),
     limit: int = Query(default=20, ge=1, le=100),
@@ -527,9 +562,11 @@ def get_stock_news(
             detail=f"Ticker '{normalized_ticker}' was not found",
         )
 
+    company_name, logo_url = await _ensure_stock_profile(stock, db)
+
     raw_items, provider_error = _fetch_google_news_items(
         ticker=normalized_ticker,
-        company_name=stock.company_name,
+        company_name=company_name,
         limit=max(limit * 3, 30),
     )
 
@@ -540,8 +577,8 @@ def get_stock_news(
 
     return StockNewsResponse(
         ticker=normalized_ticker,
-        company_name=stock.company_name,
-        logo_url=stock.logo_url,
+        company_name=company_name,
+        logo_url=logo_url,
         timeframe=timeframe,
         total=len(filtered_items),
         limit=limit,
@@ -552,7 +589,7 @@ def get_stock_news(
 
 
 @router.get("/{ticker}/live", response_model=StockLiveResponse)
-def get_stock_live_data(
+async def get_stock_live_data(
     ticker: str,
     data_range: LiveRange = Query(default=LiveRange.one_day, alias="range"),
     interval: LiveInterval = Query(default=LiveInterval.five_minutes),
@@ -566,6 +603,8 @@ def get_stock_live_data(
             detail=f"Ticker '{normalized_ticker}' was not found",
         )
 
+    company_name, logo_url = await _ensure_stock_profile(stock, db)
+
     items, provider_error = _fetch_yahoo_live_points(
         ticker=normalized_ticker,
         data_range=data_range,
@@ -576,8 +615,8 @@ def get_stock_live_data(
 
     return StockLiveResponse(
         ticker=normalized_ticker,
-        company_name=stock.company_name,
-        logo_url=stock.logo_url,
+        company_name=company_name,
+        logo_url=logo_url,
         range=data_range,
         interval=interval,
         provider="yahoo_chart",

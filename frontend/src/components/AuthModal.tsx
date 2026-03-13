@@ -11,6 +11,7 @@ export function AuthModal({ open, onClose }: { open: boolean; onClose: () => voi
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [verifyToken, setVerifyToken] = useState('')
+  const [verificationLink, setVerificationLink] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -41,6 +42,7 @@ export function AuthModal({ open, onClose }: { open: boolean; onClose: () => voi
     try {
       const response = await register(email, password)
       setMessage(response.message)
+      setVerificationLink(response.verification_link ?? null)
       if (response.verification_token) {
         setVerifyToken(response.verification_token)
       }
@@ -131,15 +133,25 @@ export function AuthModal({ open, onClose }: { open: boolean; onClose: () => voi
           )}
 
           {activeTab === 'verify' && (
-            <label>
-              <div className="muted">Verification Token</div>
-              <input
-                className="input"
-                value={verifyToken}
-                onChange={(event) => setVerifyToken(event.target.value)}
-                placeholder="Paste token from register response"
-              />
-            </label>
+            <>
+              {verificationLink && (
+                <div className="muted">
+                  Verification email sent. You can also open this link directly:{' '}
+                  <a href={verificationLink} target="_blank" rel="noreferrer">
+                    Verify now
+                  </a>
+                </div>
+              )}
+              <label>
+                <div className="muted">Verification Token (dev fallback)</div>
+                <input
+                  className="input"
+                  value={verifyToken}
+                  onChange={(event) => setVerifyToken(event.target.value)}
+                  placeholder="Paste token only if needed"
+                />
+              </label>
+            </>
           )}
 
           {message && <div className="chip positive">{message}</div>}

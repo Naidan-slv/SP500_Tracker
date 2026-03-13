@@ -569,10 +569,400 @@ tbody tr:hover {
   color: rgba(254, 252, 253, 0.7);
 }
 
+/* ── Stock Cards Grid ─────────────────────────────── */
+.stock-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.home-hero {
+  position: relative;
+  overflow: hidden;
+  min-height: 320px;
+}
+
+.home-hero-overlay {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(120deg, rgba(8, 16, 34, 0.86), rgba(17, 37, 68, 0.5)),
+    radial-gradient(circle at 80% 20%, rgba(96, 165, 250, 0.22), transparent 40%);
+  pointer-events: none;
+}
+
+.home-hero-content {
+  position: relative;
+  z-index: 1;
+}
+
+.home-feature-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.home-feature-card {
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.home-feature-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(191, 205, 224, 0.28);
+}
+
+.home-feature-icon {
+  font-size: 1.45rem;
+  margin-bottom: 0.5rem;
+}
+
+.home-cta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
+.reveal-up {
+  animation: revealUp 0.45s ease both;
+}
+
+@keyframes revealUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.stock-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  padding: 1.1rem;
+  border-radius: 18px;
+  border: 1px solid rgba(191, 205, 224, 0.1);
+  background: linear-gradient(160deg, rgba(93, 93, 129, 0.18), rgba(59, 51, 85, 0.1));
+  backdrop-filter: blur(12px);
+  transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+.stock-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(191, 205, 224, 0.26);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.3);
+}
+
+.stock-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.stock-card-identity {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-width: 0;
+}
+
+.stock-logo {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  object-fit: contain;
+  background: rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
+}
+
+.stock-logo-placeholder {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: rgba(191, 205, 224, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--color-sky);
+  flex-shrink: 0;
+  letter-spacing: 0.04em;
+}
+
+.stock-ticker {
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.stock-name {
+  font-size: 0.8rem;
+  color: rgba(254, 252, 253, 0.58);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 120px;
+}
+
+.market-badge {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.25rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid rgba(191, 205, 224, 0.18);
+  background: rgba(191, 205, 224, 0.07);
+  color: var(--color-sky);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.stock-card-price {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.stock-price-value {
+  font-size: 1.35rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+.change-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.3rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.change-pill.positive {
+  background: rgba(105, 209, 141, 0.14);
+  border: 1px solid rgba(105, 209, 141, 0.28);
+  color: var(--color-success);
+}
+
+.change-pill.negative {
+  background: rgba(255, 143, 156, 0.14);
+  border: 1px solid rgba(255, 143, 156, 0.28);
+  color: var(--color-danger);
+}
+
+.change-pill.neutral {
+  background: rgba(191, 205, 224, 0.08);
+  border: 1px solid rgba(191, 205, 224, 0.16);
+  color: rgba(254, 252, 253, 0.6);
+}
+
+.stock-card-footer {
+  display: flex;
+  gap: 1rem;
+  padding-top: 0.6rem;
+  border-top: 1px solid rgba(191, 205, 224, 0.08);
+}
+
+.stock-card-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.stock-card-stat-label {
+  font-size: 0.72rem;
+  color: rgba(254, 252, 253, 0.48);
+}
+
+.stock-card-stat-value {
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+/* ── Movers Section ───────────────────────────────── */
+.movers-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.mover-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.7rem 0.85rem;
+  border-radius: 14px;
+  border: 1px solid rgba(191, 205, 224, 0.1);
+  background: rgba(191, 205, 224, 0.04);
+  text-decoration: none;
+  color: inherit;
+  transition: border-color 0.16s ease, background 0.16s ease;
+}
+
+.mover-item:hover {
+  border-color: rgba(191, 205, 224, 0.22);
+  background: rgba(191, 205, 224, 0.08);
+}
+
+.mover-identity {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-width: 0;
+}
+
+.mover-logo {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  object-fit: contain;
+  background: rgba(255, 255, 255, 0.06);
+  flex-shrink: 0;
+}
+
+.mover-logo-placeholder {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: rgba(191, 205, 224, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: var(--color-sky);
+  flex-shrink: 0;
+}
+
+/* ── Stock Detail Hero ────────────────────────────── */
+.detail-hero {
+  display: flex;
+  align-items: flex-start;
+  gap: 1.5rem;
+}
+
+.detail-logo {
+  width: 72px;
+  height: 72px;
+  border-radius: 16px;
+  object-fit: contain;
+  background: rgba(255, 255, 255, 0.07);
+  flex-shrink: 0;
+}
+
+.detail-logo-placeholder {
+  width: 72px;
+  height: 72px;
+  border-radius: 16px;
+  background: rgba(191, 205, 224, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+  font-weight: 900;
+  color: var(--color-sky);
+  flex-shrink: 0;
+  letter-spacing: 0.04em;
+}
+
+.detail-hero-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.detail-company {
+  font-size: 1rem;
+  color: rgba(254, 252, 253, 0.6);
+  margin: 0.2rem 0 0;
+}
+
+.detail-price-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.detail-price {
+  font-size: 2.2rem;
+  font-weight: 900;
+  letter-spacing: -0.04em;
+}
+
+/* ── Section tabs ─────────────────────────────────── */
+.section-tabs {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  border-bottom: 1px solid rgba(191, 205, 224, 0.1);
+  padding-bottom: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.section-tab {
+  padding: 0.45rem 0.85rem;
+  border-radius: 999px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  border: 1px solid transparent;
+  background: transparent;
+  color: rgba(254, 252, 253, 0.6);
+  cursor: pointer;
+  transition: all 0.16s ease;
+}
+
+.section-tab.active {
+  border-color: rgba(191, 205, 224, 0.24);
+  background: rgba(191, 205, 224, 0.1);
+  color: var(--color-white);
+}
+
+.section-tab:hover:not(.active) {
+  color: rgba(254, 252, 253, 0.9);
+}
+
+/* ── Navbar logo ──────────────────────────────────── */
+.navbar-logo {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  text-decoration: none;
+  color: inherit;
+}
+
+.navbar-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  background: linear-gradient(135deg, var(--color-grape), var(--color-sky));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+
 @media (max-width: 900px) {
   .dashboard-grid,
   .grid-4,
   .stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .stock-cards-grid,
+  .home-feature-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -588,6 +978,10 @@ tbody tr:hover {
 
   .sidebar-card {
     position: static;
+  }
+
+  .movers-grid {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -613,5 +1007,21 @@ tbody tr:hover {
 
   .pager-row {
     justify-content: space-between;
+  }
+
+  .stock-cards-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .home-feature-grid,
+  .home-cta {
+    grid-template-columns: 1fr;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .detail-hero {
+    flex-direction: column;
+    gap: 0.8rem;
   }
 }

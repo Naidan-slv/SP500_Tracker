@@ -105,6 +105,7 @@ export type RegisterResponse = {
   message: string
   user_id: number
   verification_token?: string | null
+  verification_link?: string | null
 }
 
 export type LoginResponse = {

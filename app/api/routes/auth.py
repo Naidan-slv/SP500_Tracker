@@ -12,6 +12,7 @@ from app.auth.schemas import (
     VerifyEmailRequest,
 )
 from app.auth.security import decode_access_token
+from app.auth.email import build_verification_link, send_verification_email
 from app.auth.service import login_user, register_user, verify_email_token
 from app.config import settings
 from app.database.dependencies import get_db
@@ -61,15 +62,24 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)):
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
 
+    verification_link = build_verification_link(verification_token)
+    email_sent = send_verification_email(user.email, verification_link)
+
     response = RegisterResponse(
-        message="Registration successful. Please verify your email.",
+        message=(
+            "Registration successful. Verification email sent."
+            if email_sent
+            else "Registration successful. Please verify your email."
+        ),
         user_id=user.id,
     )
+
+    response.verification_link = verification_link
 
     if settings.expose_verification_token:
         response.verification_token = verification_token
 
-    print(f"Verification link: {settings.app_base_url}/auth/verify-email?token={verification_token}")
+    print(f"Verification link: {verification_link}")
     return response
 
 

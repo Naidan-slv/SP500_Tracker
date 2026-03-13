@@ -94,7 +94,7 @@ class TestStocksContract:
         assert isinstance(body["limit"], int)
         assert isinstance(body["offset"], int)
         assert isinstance(body["items"], list)
-        assert set(body["items"][0].keys()) == {"ticker", "company_name"}
+        assert set(body["items"][0].keys()) == {"ticker", "company_name", "logo_url"}
 
     def test_stock_history_contract(self, client: TestClient, db_session: Session):
         seed_stock_data(db_session)
@@ -106,6 +106,7 @@ class TestStocksContract:
         assert set(body.keys()) == {
             "ticker",
             "company_name",
+            "logo_url",
             "timeframe",
             "start_date",
             "end_date",

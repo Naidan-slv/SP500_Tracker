@@ -141,8 +141,13 @@ Configured via `render.yaml`. Set these env vars in the Render dashboard:
 |----------|-------------|
 | `DATABASE_URL` | Supabase session pooler URI |
 | `JWT_SECRET_KEY` | Long random secret (generate: `openssl rand -hex 32`) |
+| `FRONTEND_URL` | Public frontend URL used in verification links (e.g. `https://sp500-tracker-frontend.onrender.com`) |
+| `SMTP_HOST` | SMTP server host (e.g. `smtp.gmail.com`) |
+| `SMTP_USERNAME` | SMTP username/login |
+| `SMTP_PASSWORD` | SMTP password or app password |
+| `SMTP_FROM_EMAIL` | Sender address for verification emails |
 
-All other env vars are defined in `render.yaml` with safe defaults.
+`SMTP_ENABLED=true` is set in `render.yaml`; keep `SMTP_USE_TLS=true` unless your provider requires another mode.
 
 For the frontend, set `VITE_API_BASE_URL=https://sp500-tracker.onrender.com` when deploying to a static host such as Vercel or Netlify.
 
