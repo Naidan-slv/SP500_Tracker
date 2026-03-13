@@ -55,6 +55,25 @@ def register_user(db: Session, email: str, password: str) -> tuple[User, str]:
     return user, verification_token
 
 
+def resend_verification_for_user(db: Session, email: str) -> tuple[User, str]:
+    normalized_email = normalize_email(email)
+    user = db.scalar(select(User).where(User.email == normalized_email))
+
+    if not user:
+        raise ValueError("User not found")
+
+    if not user.is_active:
+        raise PermissionError("Account is inactive")
+
+    if user.is_email_verified:
+        raise ValueError("Email is already verified")
+
+    verification_token = create_email_verification_token(db, user.id)
+    db.commit()
+    db.refresh(user)
+    return user, verification_token
+
+
 def login_user(db: Session, email: str, password: str) -> tuple[User, str]:
     normalized_email = normalize_email(email)
     user = db.scalar(select(User).where(User.email == normalized_email))

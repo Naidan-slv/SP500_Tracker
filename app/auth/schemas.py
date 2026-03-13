@@ -38,5 +38,9 @@ class VerifyEmailRequest(BaseModel):
     token: str
 
 
+class ResendVerificationRequest(BaseModel):
+    email: str
+
+
 class MessageResponse(BaseModel):
     message: str

@@ -6,6 +6,7 @@ from app.auth.schemas import (
     LoginRequest,
     LoginResponse,
     MessageResponse,
+    ResendVerificationRequest,
     RegisterRequest,
     RegisterResponse,
     UserPublic,
@@ -13,7 +14,7 @@ from app.auth.schemas import (
 )
 from app.auth.security import decode_access_token
 from app.auth.email import build_verification_link, send_verification_email
-from app.auth.service import login_user, register_user, verify_email_token
+from app.auth.service import login_user, register_user, resend_verification_for_user, verify_email_token
 from app.config import settings
 from app.database.dependencies import get_db
 from app.database.models import User
@@ -103,6 +104,25 @@ def verify_email(payload: VerifyEmailRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
     return MessageResponse(message="Email verified successfully")
+
+
+@router.post("/resend-verification", response_model=MessageResponse)
+def resend_verification(payload: ResendVerificationRequest, db: Session = Depends(get_db)):
+    try:
+        user, verification_token = resend_verification_for_user(db, payload.email)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
+
+    verification_link = build_verification_link(verification_token)
+    email_sent = send_verification_email(user.email, verification_link)
+    print(f"Verification link: {verification_link}")
+
+    if email_sent:
+        return MessageResponse(message="Verification email resent successfully")
+
+    return MessageResponse(message="Verification link generated. Please try email resend again.")
 
 
 @router.get("/me", response_model=UserPublic)

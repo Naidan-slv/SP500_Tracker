@@ -128,6 +128,13 @@ export async function verifyEmailToken(token: string): Promise<MessageResponse> 
   })
 }
 
+export async function resendVerificationEmail(email: string): Promise<MessageResponse> {
+  return request<MessageResponse>('/auth/resend-verification', {
+    method: 'POST',
+    body: { email },
+  })
+}
+
 export async function loginUser(email: string, password: string): Promise<LoginResponse> {
   return request<LoginResponse>('/auth/login', {
     method: 'POST',

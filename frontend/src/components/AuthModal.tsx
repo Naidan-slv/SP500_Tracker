@@ -5,7 +5,7 @@ import { useAuth } from '../auth/AuthContext'
 type AuthTab = 'login' | 'register' | 'verify'
 
 export function AuthModal({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const { login, register, verifyEmail } = useAuth()
+  const { login, register, resendVerification, verifyEmail } = useAuth()
 
   const [activeTab, setActiveTab] = useState<AuthTab>('login')
   const [email, setEmail] = useState('')
@@ -64,6 +64,20 @@ export function AuthModal({ open, onClose }: { open: boolean; onClose: () => voi
       setActiveTab('login')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Verification failed')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleResendVerification() {
+    setLoading(true)
+    setError(null)
+    setMessage(null)
+    try {
+      const resendMessage = await resendVerification(email)
+      setMessage(resendMessage)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Resend failed')
     } finally {
       setLoading(false)
     }
@@ -134,6 +148,16 @@ export function AuthModal({ open, onClose }: { open: boolean; onClose: () => voi
 
           {activeTab === 'verify' && (
             <>
+              <label>
+                <div className="muted">Email</div>
+                <input
+                  className="input"
+                  type="email"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  placeholder="you@example.com"
+                />
+              </label>
               {verificationLink && (
                 <div className="muted">
                   Verification email sent. You can also open this link directly:{' '}
@@ -169,9 +193,19 @@ export function AuthModal({ open, onClose }: { open: boolean; onClose: () => voi
               </button>
             )}
             {activeTab === 'verify' && (
-              <button className="button" type="button" disabled={loading} onClick={handleVerify}>
-                {loading ? 'Verifying...' : 'Verify'}
-              </button>
+              <>
+                <button className="button" type="button" disabled={loading} onClick={handleVerify}>
+                  {loading ? 'Verifying...' : 'Verify'}
+                </button>
+                <button
+                  className="button secondary"
+                  type="button"
+                  disabled={loading || !email.trim()}
+                  onClick={handleResendVerification}
+                >
+                  {loading ? 'Sending...' : 'Resend email'}
+                </button>
+              </>
             )}
           </div>
         </div>
