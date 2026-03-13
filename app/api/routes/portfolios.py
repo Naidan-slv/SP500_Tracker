@@ -18,9 +18,18 @@ class PortfolioCreateRequest(BaseModel):
     name: str = Field(min_length=1, max_length=120)
 
 
+class PortfolioUpdateRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+
+
 class HoldingAddRequest(BaseModel):
     ticker: str = Field(min_length=1, max_length=16)
     quantity: float = Field(gt=0)
+    avg_cost: float | None = Field(default=None, gt=0)
+
+
+class HoldingUpdateRequest(BaseModel):
+    quantity: float | None = Field(default=None, gt=0)
     avg_cost: float | None = Field(default=None, gt=0)
 
 
@@ -188,6 +197,31 @@ def delete_portfolio(
     return MessageResponse(message="Portfolio deleted successfully")
 
 
+@router.patch("/{portfolio_id}", response_model=PortfolioPublic)
+def update_portfolio(
+    portfolio_id: int,
+    payload: PortfolioUpdateRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    portfolio = _get_user_portfolio_or_404(db, portfolio_id, current_user.id)
+    portfolio.name = payload.name.strip()
+    db.add(portfolio)
+    db.commit()
+    db.refresh(portfolio)
+
+    holdings_count = db.scalar(
+        select(func.count()).where(PortfolioHolding.portfolio_id == portfolio_id)
+    ) or 0
+
+    return PortfolioPublic(
+        id=portfolio.id,
+        name=portfolio.name,
+        created_at=portfolio.created_at,
+        holdings_count=holdings_count,
+    )
+
+
 @router.get("/{portfolio_id}/holdings", response_model=PortfolioHoldingsResponse)
 def list_holdings(
     portfolio_id: int,
@@ -293,3 +327,50 @@ def remove_holding(
     db.delete(holding)
     db.commit()
     return MessageResponse(message="Holding removed successfully")
+
+
+@router.patch("/{portfolio_id}/holdings/{ticker}", response_model=HoldingPublic)
+def update_holding(
+    portfolio_id: int,
+    ticker: str,
+    payload: HoldingUpdateRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    _get_user_portfolio_or_404(db, portfolio_id, current_user.id)
+
+    updates = payload.model_dump(exclude_unset=True)
+    if not updates:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Provide at least one field to update: quantity or avg_cost",
+        )
+
+    normalized_ticker = ticker.strip().upper()
+    holding = db.scalar(
+        select(PortfolioHolding).where(
+            PortfolioHolding.portfolio_id == portfolio_id,
+            PortfolioHolding.ticker == normalized_ticker,
+        )
+    )
+    if not holding:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Holding not found")
+
+    if "quantity" in updates and updates["quantity"] is not None:
+        holding.quantity = updates["quantity"]
+    if "avg_cost" in updates:
+        holding.avg_cost = updates["avg_cost"]
+
+    db.add(holding)
+    db.commit()
+    db.refresh(holding)
+
+    stock = db.get(Stock, normalized_ticker)
+
+    return HoldingPublic(
+        id=holding.id,
+        ticker=holding.ticker,
+        company_name=stock.company_name if stock else None,
+        quantity=float(holding.quantity),
+        avg_cost=_to_float_or_none(holding.avg_cost),
+    )

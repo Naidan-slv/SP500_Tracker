@@ -23,6 +23,21 @@ _LIVE_CACHE_TTL_SECONDS = 45
 _LIVE_CACHE_STALE_SECONDS = 300
 _LIVE_CACHE: dict[tuple[str, str, str], dict[str, Any]] = {}
 
+# News cache: key = (ticker, timeframe) → {items, fetched_at}
+_NEWS_CACHE_TTL_SECONDS = 300  # 5 minutes
+_NEWS_CACHE: dict[tuple[str, str], dict[str, Any]] = {}
+
+# Google News RSS "when:Xd" operator mapping
+_TIMEFRAME_GOOGLE_WHEN = {
+    "1w": "7d",
+    "1m": "30d",
+    "3m": "90d",
+    "6m": "180d",
+    "1y": "365d",
+    "5y": "1825d",
+    "max": "1825d",
+}
+
 
 class Timeframe(str, Enum):
     one_week = "1w"
@@ -337,11 +352,17 @@ def _fetch_google_news_items(
     ticker: str,
     company_name: str | None,
     limit: int,
+    timeframe_value: str = "1w",
 ) -> tuple[list[StockNewsItem], str | None]:
     query_terms = [ticker]
     if company_name:
         query_terms.append(company_name)
     query_terms.append("stock")
+
+    # Google News RSS supports a "when:Xd" operator to scope recency
+    when_param = _TIMEFRAME_GOOGLE_WHEN.get(timeframe_value, "7d")
+    query_terms.append(f"when:{when_param}")
+
     query = quote_plus(" ".join(query_terms))
     feed_url = f"https://news.google.com/rss/search?q={query}&hl=en-US&gl=US&ceid=US:en"
 
@@ -841,16 +862,45 @@ async def get_stock_news(
 
     company_name, logo_url = await _ensure_stock_profile(stock, db)
 
+    # Check in-memory news cache first
+    news_cache_key = (normalized_ticker, timeframe.value)
+    cached_news = _NEWS_CACHE.get(news_cache_key)
+    if cached_news:
+        age = (datetime.now(timezone.utc) - cached_news["fetched_at"]).total_seconds()
+        if age < _NEWS_CACHE_TTL_SECONDS:
+            return StockNewsResponse(
+                ticker=normalized_ticker,
+                company_name=company_name,
+                logo_url=logo_url,
+                timeframe=timeframe,
+                total=len(cached_news["items"]),
+                limit=limit,
+                provider="google_news_rss",
+                provider_error=cached_news.get("provider_error"),
+                items=cached_news["items"][:limit],
+            )
+
+    # Wider timeframes → fetch larger batches to get enough articles
+    fetch_batch = max(limit * 4, 60)
+
     raw_items, provider_error = _fetch_google_news_items(
         ticker=normalized_ticker,
         company_name=company_name,
-        limit=max(limit * 3, 30),
+        limit=fetch_batch,
+        timeframe_value=timeframe.value,
     )
 
     since = _timeframe_start_datetime(timeframe, datetime.now(timezone.utc))
     filtered_items = [
         item for item in raw_items if item.published_at is not None and item.published_at >= since
     ][:limit]
+
+    # Cache the filtered result
+    _NEWS_CACHE[news_cache_key] = {
+        "items": filtered_items,
+        "provider_error": provider_error,
+        "fetched_at": datetime.now(timezone.utc),
+    }
 
     return StockNewsResponse(
         ticker=normalized_ticker,

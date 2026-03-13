@@ -213,10 +213,11 @@ class TestStockNews:
         monkeypatch,
     ):
         seed_stock_data(db_session)
+        stocks_routes._NEWS_CACHE.clear()
 
         now = datetime.now(timezone.utc)
 
-        def fake_fetch_google_news_items(ticker: str, company_name: str | None, limit: int):
+        def fake_fetch_google_news_items(ticker: str, company_name: str | None, limit: int, timeframe_value: str = "1w"):
             return [
                 stocks_routes.StockNewsItem(
                     title="Apple launches new AI features",
@@ -252,8 +253,9 @@ class TestStockNews:
         monkeypatch,
     ):
         seed_stock_data(db_session)
+        stocks_routes._NEWS_CACHE.clear()
 
-        def fake_fetch_google_news_items(ticker: str, company_name: str | None, limit: int):
+        def fake_fetch_google_news_items(ticker: str, company_name: str | None, limit: int, timeframe_value: str = "1w"):
             return [], "News provider unavailable"
 
         monkeypatch.setattr(stocks_routes, "_fetch_google_news_items", fake_fetch_google_news_items)

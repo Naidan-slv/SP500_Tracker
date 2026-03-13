@@ -27,7 +27,6 @@ if str(PROJECT_ROOT) not in sys.path:
 # Set a dummy DATABASE_URL before any app import so config doesn't raise
 os.environ.setdefault("DATABASE_URL", "sqlite:///:memory:")
 os.environ.setdefault("JWT_SECRET_KEY", "test-secret-key")
-os.environ.setdefault("EXPOSE_VERIFICATION_TOKEN", "true")
 
 from sqlalchemy import Integer as SAInteger
 from sqlalchemy import BigInteger
@@ -107,17 +106,10 @@ def register_user(client: TestClient, email: str, password: str = "Password123")
     return resp
 
 
-def get_verification_token(client: TestClient, email: str, password: str = "Password123") -> str:
-    """Register a new user and return the raw verification token."""
-    resp = register_user(client, email, password)
-    assert resp.status_code == 201, resp.text
-    return resp.json()["verification_token"]
-
-
 def make_verified_user(client: TestClient, email: str, password: str = "Password123") -> dict:
-    """Register + verify a user, return login response body."""
-    token = get_verification_token(client, email, password)
-    client.post("/auth/verify-email", json={"token": token})
+    """Register a user and log in, return login response body."""
+    reg = register_user(client, email, password)
+    assert reg.status_code == 201, reg.text
     resp = client.post("/auth/login", json={"email": email, "password": password})
     assert resp.status_code == 200, resp.text
     return resp.json()

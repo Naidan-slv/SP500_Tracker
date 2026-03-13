@@ -69,9 +69,11 @@ Full-stack stock tracking platform for COMP3011 Web Services coursework.
 |--------|------|------|-------------|
 | POST | `/portfolios` | ✅ | Create portfolio |
 | GET | `/portfolios` | ✅ | List user's portfolios |
+| PATCH | `/portfolios/{id}` | ✅ | Rename portfolio |
 | DELETE | `/portfolios/{id}` | ✅ | Delete portfolio |
 | GET | `/portfolios/{id}/holdings` | ✅ | List holdings |
 | POST | `/portfolios/{id}/holdings` | ✅ | Add holding (quantity + avg cost) |
+| PATCH | `/portfolios/{id}/holdings/{ticker}` | ✅ | Update holding quantity/avg cost |
 | DELETE | `/portfolios/{id}/holdings/{ticker}` | ✅ | Remove holding |
 
 ---
@@ -136,16 +138,37 @@ npm run build
 
 ---
 
+## Caching Architecture
+
+The app uses a **two-tier caching strategy** to keep the experience fast on free-tier hosting and avoid external provider rate limits:
+
+### Backend (in-memory)
+| Cache | Key | TTL | Purpose |
+|-------|-----|-----|---------|
+| Live market data | `(ticker, range, interval)` | 45 s fresh / 5 min stale fallback | Avoid re-hitting Finnhub/Yahoo on every page load |
+| News feeds | `(ticker, timeframe)` | 5 min | Prevent duplicate Google News RSS calls when users toggle timeframe filters |
+
+### Frontend (TanStack Query)
+| Scope | staleTime | gcTime | Purpose |
+|-------|-----------|--------|---------|
+| Global default | 2 min | 5 min | All queries get basic freshness without config |
+| Stock universe (Discover/Portfolio/Watchlists) | 10 min | 30 min | The ticker list rarely changes; cached aggressively |
+| Detail / History queries | 5 min | default | Balance freshness vs network calls |
+
+Both tiers work together: the backend prevents redundant external calls while the frontend prevents redundant API calls. Together, page navigations and filter changes feel instant.
+
+---
+
 ## Tests
 
 ```bash
 pytest tests/
-# 120 tests, in-memory SQLite, no network required
+# 142 tests, in-memory SQLite, no network required
 ```
 
 Latest verified local checks:
 
-- `pytest -q` → `120 passed in 2.76s`
+- `pytest -q` → `142 passed in 4.81s`
 - `cd frontend && npm run build` → production build succeeded
 
 ---
@@ -181,5 +204,5 @@ For the frontend, set `VITE_API_BASE_URL=https://sp500-tracker.onrender.com` whe
 - **TanStack Query** — client-side caching and async state management
 - **React Router** — frontend routing
 - **Recharts** — historical and live chart rendering
-- **pytest** — backend test suite (`120` tests)
+- **pytest** — backend test suite (`142` tests)
 - **Render** — backend deployment platform

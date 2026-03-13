@@ -5,7 +5,7 @@ Tests for POST /auth/login
 """
 import pytest
 from fastapi.testclient import TestClient
-from tests.conftest import get_verification_token, make_verified_user
+from tests.conftest import make_verified_user
 
 
 class TestLoginSuccess:
@@ -71,30 +71,6 @@ class TestLoginFailures:
             json={"email": "ghost@example.com", "password": "Password123"},
         )
         assert resp.status_code == 401
-
-    def test_unverified_user_cannot_login(self, client: TestClient):
-        """A user who hasn't verified their email should get 403."""
-        client.post(
-            "/auth/register",
-            json={"email": "unverified@example.com", "password": "Password123"},
-        )
-        # Do NOT verify email
-        resp = client.post(
-            "/auth/login",
-            json={"email": "unverified@example.com", "password": "Password123"},
-        )
-        assert resp.status_code == 403
-
-    def test_unverified_error_message(self, client: TestClient):
-        client.post(
-            "/auth/register",
-            json={"email": "unverified_msg@example.com", "password": "Password123"},
-        )
-        resp = client.post(
-            "/auth/login",
-            json={"email": "unverified_msg@example.com", "password": "Password123"},
-        )
-        assert "verified" in resp.json()["detail"].lower()
 
     def test_missing_email_returns_422(self, client: TestClient):
         resp = client.post("/auth/login", json={"password": "Password123"})

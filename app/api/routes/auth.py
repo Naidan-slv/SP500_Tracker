@@ -5,17 +5,12 @@ from sqlalchemy.orm import Session
 from app.auth.schemas import (
     LoginRequest,
     LoginResponse,
-    MessageResponse,
-    ResendVerificationRequest,
     RegisterRequest,
     RegisterResponse,
     UserPublic,
-    VerifyEmailRequest,
 )
 from app.auth.security import decode_access_token
-from app.auth.email import build_verification_link, send_verification_email
-from app.auth.service import login_user, register_user, resend_verification_for_user, verify_email_token
-from app.config import settings
+from app.auth.service import login_user, register_user
 from app.database.dependencies import get_db
 from app.database.models import User
 
@@ -59,29 +54,14 @@ def get_current_user(
 @router.post("/register", response_model=RegisterResponse, status_code=status.HTTP_201_CREATED)
 def register(payload: RegisterRequest, db: Session = Depends(get_db)):
     try:
-        user, verification_token = register_user(db, payload.email, payload.password)
+        user = register_user(db, payload.email, payload.password)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
 
-    verification_link = build_verification_link(verification_token)
-    email_sent = send_verification_email(user.email, verification_link)
-
-    response = RegisterResponse(
-        message=(
-            "Registration successful. Verification email sent."
-            if email_sent
-            else "Registration successful. Please verify your email."
-        ),
+    return RegisterResponse(
+        message="Registration successful. You can now log in.",
         user_id=user.id,
     )
-
-    response.verification_link = verification_link
-
-    if settings.expose_verification_token:
-        response.verification_token = verification_token
-
-    print(f"Verification link: {verification_link}")
-    return response
 
 
 @router.post("/login", response_model=LoginResponse)
@@ -94,35 +74,6 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
 
     return LoginResponse(access_token=access_token, user=_to_public_user(user))
-
-
-@router.post("/verify-email", response_model=MessageResponse)
-def verify_email(payload: VerifyEmailRequest, db: Session = Depends(get_db)):
-    try:
-        verify_email_token(db, payload.token)
-    except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
-
-    return MessageResponse(message="Email verified successfully")
-
-
-@router.post("/resend-verification", response_model=MessageResponse)
-def resend_verification(payload: ResendVerificationRequest, db: Session = Depends(get_db)):
-    try:
-        user, verification_token = resend_verification_for_user(db, payload.email)
-    except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
-    except PermissionError as exc:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
-
-    verification_link = build_verification_link(verification_token)
-    email_sent = send_verification_email(user.email, verification_link)
-    print(f"Verification link: {verification_link}")
-
-    if email_sent:
-        return MessageResponse(message="Verification email resent successfully")
-
-    return MessageResponse(message="Verification link generated. Please try email resend again.")
 
 
 @router.get("/me", response_model=UserPublic)

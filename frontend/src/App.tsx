@@ -8,7 +8,6 @@ const DiscoverPage = lazy(() => import('./pages/DiscoverPage').then((module) => 
 const StockDetailPage = lazy(() => import('./pages/StockDetailPage').then((module) => ({ default: module.StockDetailPage })))
 const WatchlistsPage = lazy(() => import('./pages/WatchlistsPage').then((module) => ({ default: module.WatchlistsPage })))
 const PortfolioPage = lazy(() => import('./pages/PortfolioPage').then((module) => ({ default: module.PortfolioPage })))
-const VerifyEmailPage = lazy(() => import('./pages/VerifyEmailPage').then((module) => ({ default: module.VerifyEmailPage })))
 
 function RouteFallback() {
   return <div className="empty-state">Loading page...</div>
@@ -28,7 +27,6 @@ function App() {
             <Route path="/stocks/:ticker" element={<StockDetailPage />} />
             <Route path="/watchlists" element={<WatchlistsPage />} />
             <Route path="/portfolio" element={<PortfolioPage />} />
-            <Route path="/verify-email" element={<VerifyEmailPage />} />
             <Route path="*" element={<Navigate to="/discover" replace />} />
           </Routes>
         </Suspense>

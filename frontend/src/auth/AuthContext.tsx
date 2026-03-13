@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 
-import { fetchMe, loginUser, registerUser, resendVerificationEmail, verifyEmailToken } from '../lib/api'
+import { fetchMe, loginUser, registerUser } from '../lib/api'
 import type { LoginResponse, RegisterResponse, UserPublic } from '../lib/types'
 
 type AuthContextValue = {
@@ -10,8 +10,6 @@ type AuthContextValue = {
   sessionLoading: boolean
   login: (email: string, password: string) => Promise<LoginResponse>
   register: (email: string, password: string) => Promise<RegisterResponse>
-  verifyEmail: (token: string) => Promise<string>
-  resendVerification: (email: string) => Promise<string>
   logout: () => void
 }
 
@@ -73,14 +71,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       },
       register: async (email: string, password: string) => {
         return registerUser(email, password)
-      },
-      verifyEmail: async (verificationToken: string) => {
-        const response = await verifyEmailToken(verificationToken)
-        return response.message
-      },
-      resendVerification: async (email: string) => {
-        const response = await resendVerificationEmail(email)
-        return response.message
       },
       logout: () => {
         localStorage.removeItem(TOKEN_KEY)

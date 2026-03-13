@@ -55,12 +55,10 @@ class TestAuthContract:
         assert isinstance(body["user_id"], int)
 
     def test_login_response_contract(self, client: TestClient):
-        register = client.post(
+        client.post(
             "/auth/register",
             json={"email": "contract_login@example.com", "password": "Password123"},
         )
-        token = register.json()["verification_token"]
-        client.post("/auth/verify-email", json={"token": token})
 
         resp = client.post(
             "/auth/login",
@@ -122,11 +120,10 @@ class TestStocksContract:
 
 class TestUserResourceContracts:
     def test_watchlist_list_contract(self, client: TestClient):
-        reg = client.post(
+        client.post(
             "/auth/register",
             json={"email": "contract_watch@example.com", "password": "Password123"},
         )
-        client.post("/auth/verify-email", json={"token": reg.json()["verification_token"]})
         login = client.post(
             "/auth/login",
             json={"email": "contract_watch@example.com", "password": "Password123"},
@@ -148,11 +145,10 @@ class TestUserResourceContracts:
     ):
         seed_stock_data(db_session)
 
-        reg = client.post(
+        client.post(
             "/auth/register",
             json={"email": "contract_watch_items@example.com", "password": "Password123"},
         )
-        client.post("/auth/verify-email", json={"token": reg.json()["verification_token"]})
         login = client.post(
             "/auth/login",
             json={"email": "contract_watch_items@example.com", "password": "Password123"},
@@ -168,11 +164,10 @@ class TestUserResourceContracts:
         assert set(body["items"][0].keys()) == {"id", "ticker", "company_name", "added_at"}
 
     def test_portfolio_list_contract(self, client: TestClient):
-        reg = client.post(
+        client.post(
             "/auth/register",
             json={"email": "contract_port@example.com", "password": "Password123"},
         )
-        client.post("/auth/verify-email", json={"token": reg.json()["verification_token"]})
         login = client.post(
             "/auth/login",
             json={"email": "contract_port@example.com", "password": "Password123"},
@@ -194,11 +189,10 @@ class TestUserResourceContracts:
     ):
         seed_stock_data(db_session)
 
-        reg = client.post(
+        client.post(
             "/auth/register",
             json={"email": "contract_port_holdings@example.com", "password": "Password123"},
         )
-        client.post("/auth/verify-email", json={"token": reg.json()["verification_token"]})
         login = client.post(
             "/auth/login",
             json={"email": "contract_port_holdings@example.com", "password": "Password123"},

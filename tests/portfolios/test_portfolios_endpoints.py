@@ -59,6 +59,34 @@ class TestPortfolioCrud:
         resp = client.delete(f"/portfolios/{portfolio_id}", headers=intruder_headers)
         assert resp.status_code == 404
 
+    def test_update_portfolio_name_success(self, client: TestClient, auth_headers: dict):
+        portfolio_id = create_portfolio(client, auth_headers, "Long Term")
+
+        updated = client.patch(
+            f"/portfolios/{portfolio_id}",
+            json={"name": "Core Holdings"},
+            headers=auth_headers,
+        )
+        assert updated.status_code == 200
+        payload = updated.json()
+        assert payload["id"] == portfolio_id
+        assert payload["name"] == "Core Holdings"
+
+    def test_update_portfolio_other_user_returns_404(self, client: TestClient):
+        owner = make_verified_user(client, "owner_patch_port@example.com")
+        owner_headers = {"Authorization": f"Bearer {owner['access_token']}"}
+        intruder = make_verified_user(client, "intruder_patch_port@example.com")
+        intruder_headers = {"Authorization": f"Bearer {intruder['access_token']}"}
+
+        portfolio_id = create_portfolio(client, owner_headers, "Private")
+
+        resp = client.patch(
+            f"/portfolios/{portfolio_id}",
+            json={"name": "Attempted Rename"},
+            headers=intruder_headers,
+        )
+        assert resp.status_code == 404
+
 
 class TestPortfolioHoldings:
     def test_add_and_list_holdings(self, client: TestClient, auth_headers: dict, db_session: Session):
@@ -128,6 +156,95 @@ class TestPortfolioHoldings:
         assert resp.status_code == 201
         assert resp.json()["ticker"] == "AAPL"
         assert resp.json()["company_name"] == "Apple Inc."
+
+    def test_update_holding_quantity_and_avg_cost_success(
+        self,
+        client: TestClient,
+        auth_headers: dict,
+        db_session: Session,
+    ):
+        seed_stocks(db_session)
+        portfolio_id = create_portfolio(client, auth_headers, "Growth")
+
+        added = client.post(
+            f"/portfolios/{portfolio_id}/holdings",
+            json={"ticker": "AAPL", "quantity": 5, "avg_cost": 100},
+            headers=auth_headers,
+        )
+        assert added.status_code == 201
+
+        updated = client.patch(
+            f"/portfolios/{portfolio_id}/holdings/AAPL",
+            json={"quantity": 7.5, "avg_cost": 110},
+            headers=auth_headers,
+        )
+        assert updated.status_code == 200
+        payload = updated.json()
+        assert payload["ticker"] == "AAPL"
+        assert payload["quantity"] == 7.5
+        assert payload["avg_cost"] == 110.0
+
+    def test_update_holding_requires_at_least_one_field(
+        self,
+        client: TestClient,
+        auth_headers: dict,
+        db_session: Session,
+    ):
+        seed_stocks(db_session)
+        portfolio_id = create_portfolio(client, auth_headers, "Growth")
+
+        added = client.post(
+            f"/portfolios/{portfolio_id}/holdings",
+            json={"ticker": "AAPL", "quantity": 5, "avg_cost": 100},
+            headers=auth_headers,
+        )
+        assert added.status_code == 201
+
+        updated = client.patch(
+            f"/portfolios/{portfolio_id}/holdings/AAPL",
+            json={},
+            headers=auth_headers,
+        )
+        assert updated.status_code == 422
+
+    def test_update_missing_holding_returns_404(
+        self,
+        client: TestClient,
+        auth_headers: dict,
+        db_session: Session,
+    ):
+        seed_stocks(db_session)
+        portfolio_id = create_portfolio(client, auth_headers, "Growth")
+
+        updated = client.patch(
+            f"/portfolios/{portfolio_id}/holdings/MSFT",
+            json={"quantity": 2},
+            headers=auth_headers,
+        )
+        assert updated.status_code == 404
+
+    def test_update_holding_invalid_quantity_validation(
+        self,
+        client: TestClient,
+        auth_headers: dict,
+        db_session: Session,
+    ):
+        seed_stocks(db_session)
+        portfolio_id = create_portfolio(client, auth_headers, "Growth")
+
+        added = client.post(
+            f"/portfolios/{portfolio_id}/holdings",
+            json={"ticker": "AAPL", "quantity": 5, "avg_cost": 100},
+            headers=auth_headers,
+        )
+        assert added.status_code == 201
+
+        updated = client.patch(
+            f"/portfolios/{portfolio_id}/holdings/AAPL",
+            json={"quantity": 0},
+            headers=auth_headers,
+        )
+        assert updated.status_code == 422
 
     def test_add_duplicate_ticker_returns_409(self, client: TestClient, auth_headers: dict, db_session: Session):
         seed_stocks(db_session)

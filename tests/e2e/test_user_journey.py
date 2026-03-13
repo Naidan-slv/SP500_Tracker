@@ -44,10 +44,6 @@ def test_end_to_end_user_journey(client: TestClient, db_session: Session):
         json={"email": "e2e_user@example.com", "password": "Password123"},
     )
     assert register.status_code == 201
-    verification_token = register.json()["verification_token"]
-
-    verify = client.post("/auth/verify-email", json={"token": verification_token})
-    assert verify.status_code == 200
 
     login = client.post(
         "/auth/login",

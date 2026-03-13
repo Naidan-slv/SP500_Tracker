@@ -9,13 +9,15 @@ export function HomePage() {
           <div className="eyebrow">Institution-grade market intelligence</div>
           <h1 className="hero-title">Trade smarter with live market context.</h1>
           <p className="hero-copy">
-            SP500 Tracker combines curated equity coverage, structured watchlists,
-            portfolio monitoring, and deep ticker analytics in one professional workspace.
+            SP500 Tracker monitors the <strong>top 50 S&amp;P 500 companies</strong> by market
+            capitalisation — names like Apple, Microsoft, Amazon, and NVIDIA — with 230,000+ rows of
+            curated OHLCV history dating back to 2006. Every query is backed by a two-tier caching
+            strategy so the experience stays fast even on free-tier hosting.
           </p>
           <div className="hero-meta">
-            <span className="chip">Live market activity</span>
-            <span className="chip">News + history insights</span>
-            <span className="chip">Portfolio + watchlists</span>
+            <span className="chip">49 tracked tickers</span>
+            <span className="chip">Two-tier smart caching</span>
+            <span className="chip">Live + historical data</span>
           </div>
           <div style={{ display: 'flex', gap: '0.65rem', marginTop: '1rem', flexWrap: 'wrap' }}>
             <Link className="button" to="/discover">Open Market Explorer</Link>
@@ -26,26 +28,34 @@ export function HomePage() {
 
       <div className="home-feature-grid">
         <article className="card home-feature-card reveal-up">
-          <div className="home-feature-icon">📊</div>
-          <h3 className="section-title">Market Explorer</h3>
+          <div className="home-feature-icon">⚡</div>
+          <h3 className="section-title">Two-Tier Caching</h3>
           <p className="muted">
-            Navigate global tickers with intelligent filters, clean cards, and direct deep-dive access.
+            The backend caches live market quotes (45 s TTL) and news feeds (5 min TTL) in memory to
+            avoid hitting external provider limits. The React frontend uses TanStack Query with
+            per-page stale windows (2–10 min) so page navigations feel instant and repeat searches
+            never re-fetch unchanged data.
           </p>
         </article>
 
         <article className="card home-feature-card reveal-up" style={{ animationDelay: '80ms' }}>
-          <div className="home-feature-icon">📰</div>
-          <h3 className="section-title">News + Signals</h3>
+          <div className="home-feature-icon">📊</div>
+          <h3 className="section-title">Top 50 Focus</h3>
           <p className="muted">
-            Pair price action with relevant headlines and timeline context to improve decision quality.
+            Rather than tracking the entire S&amp;P 500, the platform focuses on the 49 most
+            impactful tickers by market cap, ensuring deep data quality — including company profiles,
+            deterministic name overrides, and reliable provider fallbacks — for every stock that
+            matters most to investors.
           </p>
         </article>
 
         <article className="card home-feature-card reveal-up" style={{ animationDelay: '160ms' }}>
-          <div className="home-feature-icon">🧭</div>
-          <h3 className="section-title">Portfolio Command</h3>
+          <div className="home-feature-icon">📰</div>
+          <h3 className="section-title">News + Signals</h3>
           <p className="muted">
-            Track holdings, organize watchlists, and review multi-horizon performance from one place.
+            Pair price action with relevant headlines filtered by timeframe (1 week → 5 years).
+            Google News RSS feeds are time-scoped per filter, cached server-side, and client-side
+            queries are keyed by ticker + window so switching filters is always responsive.
           </p>
         </article>
       </div>

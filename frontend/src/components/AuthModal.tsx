@@ -2,16 +2,14 @@ import { useState } from 'react'
 
 import { useAuth } from '../auth/AuthContext'
 
-type AuthTab = 'login' | 'register' | 'verify'
+type AuthTab = 'login' | 'register'
 
 export function AuthModal({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const { login, register, resendVerification, verifyEmail } = useAuth()
+  const { login, register } = useAuth()
 
   const [activeTab, setActiveTab] = useState<AuthTab>('login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [verifyToken, setVerifyToken] = useState('')
-  const [verificationLink, setVerificationLink] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -42,42 +40,9 @@ export function AuthModal({ open, onClose }: { open: boolean; onClose: () => voi
     try {
       const response = await register(email, password)
       setMessage(response.message)
-      setVerificationLink(response.verification_link ?? null)
-      if (response.verification_token) {
-        setVerifyToken(response.verification_token)
-      }
-      setActiveTab('verify')
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Registration failed')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  async function handleVerify() {
-    setLoading(true)
-    setError(null)
-    setMessage(null)
-    try {
-      const successMessage = await verifyEmail(verifyToken)
-      setMessage(successMessage)
       setActiveTab('login')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Verification failed')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  async function handleResendVerification() {
-    setLoading(true)
-    setError(null)
-    setMessage(null)
-    try {
-      const resendMessage = await resendVerification(email)
-      setMessage(resendMessage)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Resend failed')
+      setError(err instanceof Error ? err.message : 'Registration failed')
     } finally {
       setLoading(false)
     }
@@ -111,72 +76,29 @@ export function AuthModal({ open, onClose }: { open: boolean; onClose: () => voi
           >
             Register
           </button>
-          <button
-            className={`button secondary ${activeTab === 'verify' ? 'active' : ''}`}
-            type="button"
-            onClick={() => setActiveTab('verify')}
-          >
-            Verify Email
-          </button>
         </div>
 
         <div className="grid" style={{ marginTop: '1rem' }}>
-          {(activeTab === 'login' || activeTab === 'register') && (
-            <>
-              <label>
-                <div className="muted">Email</div>
-                <input
-                  className="input"
-                  type="email"
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                  placeholder="you@example.com"
-                />
-              </label>
-              <label>
-                <div className="muted">Password</div>
-                <input
-                  className="input"
-                  type="password"
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  placeholder="Minimum 8 characters"
-                />
-              </label>
-            </>
-          )}
-
-          {activeTab === 'verify' && (
-            <>
-              <label>
-                <div className="muted">Email</div>
-                <input
-                  className="input"
-                  type="email"
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                  placeholder="you@example.com"
-                />
-              </label>
-              {verificationLink && (
-                <div className="auth-helper-text">
-                  Verification email sent. You can also open this link directly:{' '}
-                  <a href={verificationLink} target="_blank" rel="noreferrer">
-                    Verify now
-                  </a>
-                </div>
-              )}
-              <label>
-                <div className="muted">Verification Token (dev fallback)</div>
-                <input
-                  className="input"
-                  value={verifyToken}
-                  onChange={(event) => setVerifyToken(event.target.value)}
-                  placeholder="Paste token only if needed"
-                />
-              </label>
-            </>
-          )}
+          <label>
+            <div className="muted">Email</div>
+            <input
+              className="input"
+              type="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              placeholder="you@example.com"
+            />
+          </label>
+          <label>
+            <div className="muted">Password</div>
+            <input
+              className="input"
+              type="password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              placeholder="Minimum 8 characters"
+            />
+          </label>
 
           {message && <div className="chip positive">{message}</div>}
           {error && <div className="chip negative">{error}</div>}
@@ -191,21 +113,6 @@ export function AuthModal({ open, onClose }: { open: boolean; onClose: () => voi
               <button className="button" type="button" disabled={loading} onClick={handleRegister}>
                 {loading ? 'Creating account...' : 'Register'}
               </button>
-            )}
-            {activeTab === 'verify' && (
-              <>
-                <button className="button" type="button" disabled={loading} onClick={handleVerify}>
-                  {loading ? 'Verifying...' : 'Verify'}
-                </button>
-                <button
-                  className="button secondary"
-                  type="button"
-                  disabled={loading || !email.trim()}
-                  onClick={handleResendVerification}
-                >
-                  {loading ? 'Sending...' : 'Resend email'}
-                </button>
-              </>
             )}
           </div>
         </div>

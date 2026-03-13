@@ -24,7 +24,7 @@ const API_BASE_URL = import.meta.env.DEV
   : import.meta.env.VITE_API_BASE_URL ?? 'https://sp500-tracker.onrender.com'
 
 type RequestOptions = {
-  method?: 'GET' | 'POST' | 'DELETE'
+  method?: 'GET' | 'POST' | 'PATCH' | 'DELETE'
   token?: string
   body?: unknown
 }
@@ -142,20 +142,6 @@ export async function registerUser(email: string, password: string): Promise<Reg
   })
 }
 
-export async function verifyEmailToken(token: string): Promise<MessageResponse> {
-  return request<MessageResponse>('/auth/verify-email', {
-    method: 'POST',
-    body: { token },
-  })
-}
-
-export async function resendVerificationEmail(email: string): Promise<MessageResponse> {
-  return request<MessageResponse>('/auth/resend-verification', {
-    method: 'POST',
-    body: { email },
-  })
-}
-
 export async function loginUser(email: string, password: string): Promise<LoginResponse> {
   return request<LoginResponse>('/auth/login', {
     method: 'POST',
@@ -268,5 +254,18 @@ export async function removePortfolioHolding(
   return request<MessageResponse>(`/portfolios/${portfolioId}/holdings/${encodeURIComponent(ticker)}`, {
     method: 'DELETE',
     token,
+  })
+}
+
+export async function updatePortfolioHolding(
+  token: string,
+  portfolioId: number,
+  ticker: string,
+  payload: { quantity?: number; avg_cost?: number | null },
+): Promise<HoldingPublic> {
+  return request<HoldingPublic>(`/portfolios/${portfolioId}/holdings/${encodeURIComponent(ticker)}`, {
+    method: 'PATCH',
+    token,
+    body: payload,
   })
 }

@@ -11,6 +11,7 @@ import {
   fetchPortfolios,
   fetchStocksUniverse,
   removePortfolioHolding,
+  updatePortfolioHolding,
 } from '../lib/api'
 
 export function PortfolioPage() {
@@ -23,6 +24,9 @@ export function PortfolioPage() {
   const [avgCost, setAvgCost] = useState('')
   const [selectedPortfolioId, setSelectedPortfolioId] = useState<number | null>(null)
   const [pageError, setPageError] = useState<string | null>(null)
+  const [editingHoldingId, setEditingHoldingId] = useState<number | null>(null)
+  const [editQuantity, setEditQuantity] = useState('')
+  const [editAvgCost, setEditAvgCost] = useState('')
 
   const portfoliosQuery = useQuery({
     queryKey: ['portfolios', token],
@@ -98,6 +102,59 @@ export function PortfolioPage() {
     },
     onError: (error: Error) => setPageError(error.message),
   })
+
+  const updateHoldingMutation = useMutation({
+    mutationFn: (payload: { ticker: string; quantity: number; avg_cost: number | null }) =>
+      updatePortfolioHolding(token!, selectedPortfolioId!, payload.ticker, {
+        quantity: payload.quantity,
+        avg_cost: payload.avg_cost,
+      }),
+    onSuccess: async () => {
+      setEditingHoldingId(null)
+      setEditQuantity('')
+      setEditAvgCost('')
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['portfolio-holdings', token, selectedPortfolioId] }),
+        queryClient.invalidateQueries({ queryKey: ['portfolios', token] }),
+      ])
+    },
+    onError: (error: Error) => setPageError(error.message),
+  })
+
+  function beginEdit(quantityValue: number, avgCostValue: number | null, holdingId: number) {
+    setPageError(null)
+    setEditingHoldingId(holdingId)
+    setEditQuantity(String(quantityValue))
+    setEditAvgCost(avgCostValue == null ? '' : String(avgCostValue))
+  }
+
+  function cancelEdit() {
+    setEditingHoldingId(null)
+    setEditQuantity('')
+    setEditAvgCost('')
+  }
+
+  function saveHolding(ticker: string) {
+    const parsedQuantity = Number(editQuantity)
+    const normalizedAvgCost = editAvgCost.trim()
+    const parsedAvgCost = normalizedAvgCost ? Number(normalizedAvgCost) : null
+
+    if (!Number.isFinite(parsedQuantity) || parsedQuantity <= 0) {
+      setPageError('Quantity must be greater than 0.')
+      return
+    }
+    if (parsedAvgCost !== null && (!Number.isFinite(parsedAvgCost) || parsedAvgCost <= 0)) {
+      setPageError('Average cost must be greater than 0, or left empty.')
+      return
+    }
+
+    setPageError(null)
+    updateHoldingMutation.mutate({
+      ticker,
+      quantity: parsedQuantity,
+      avg_cost: parsedAvgCost,
+    })
+  }
 
   const selectedPortfolio = useMemo(
     () => portfoliosQuery.data?.items.find((item) => item.id === selectedPortfolioId) ?? null,
@@ -344,16 +401,71 @@ export function PortfolioPage() {
                               {holding.company_name ?? holding.ticker}
                             </div>
                           </td>
-                          <td>{holding.quantity.toFixed(4)}</td>
-                          <td>{holding.avg_cost ? `$${holding.avg_cost.toFixed(2)}` : '—'}</td>
                           <td>
-                            <button
-                              className="button secondary"
-                              type="button"
-                              onClick={() => removeHoldingMutation.mutate(holding.ticker)}
-                            >
-                              Remove
-                            </button>
+                            {editingHoldingId === holding.id ? (
+                              <input
+                                className="input"
+                                value={editQuantity}
+                                onChange={(event) => setEditQuantity(event.target.value)}
+                                placeholder="Quantity"
+                                type="number"
+                                min="0"
+                                step="0.0001"
+                              />
+                            ) : (
+                              holding.quantity.toFixed(4)
+                            )}
+                          </td>
+                          <td>
+                            {editingHoldingId === holding.id ? (
+                              <input
+                                className="input"
+                                value={editAvgCost}
+                                onChange={(event) => setEditAvgCost(event.target.value)}
+                                placeholder="Avg cost"
+                                type="number"
+                                min="0"
+                                step="0.0001"
+                              />
+                            ) : holding.avg_cost ? (
+                              `$${holding.avg_cost.toFixed(2)}`
+                            ) : (
+                              '—'
+                            )}
+                          </td>
+                          <td>
+                            {editingHoldingId === holding.id ? (
+                              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                <button
+                                  className="button"
+                                  type="button"
+                                  onClick={() => saveHolding(holding.ticker)}
+                                  disabled={updateHoldingMutation.isPending}
+                                >
+                                  {updateHoldingMutation.isPending ? 'Saving...' : 'Save'}
+                                </button>
+                                <button className="button secondary" type="button" onClick={cancelEdit}>
+                                  Cancel
+                                </button>
+                              </div>
+                            ) : (
+                              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                <button
+                                  className="button secondary"
+                                  type="button"
+                                  onClick={() => beginEdit(holding.quantity, holding.avg_cost, holding.id)}
+                                >
+                                  Edit
+                                </button>
+                                <button
+                                  className="button secondary"
+                                  type="button"
+                                  onClick={() => removeHoldingMutation.mutate(holding.ticker)}
+                                >
+                                  Remove
+                                </button>
+                              </div>
+                            )}
                           </td>
                         </tr>
                       ))}

@@ -25,40 +25,12 @@ class TestRegisterSuccess:
         assert "user_id" in body
         assert isinstance(body["user_id"], int)
 
-    def test_register_exposes_verification_token_in_dev_mode(self, client: TestClient):
-        """EXPOSE_VERIFICATION_TOKEN=true → token is present in response."""
-        resp = client.post(
-            "/auth/register",
-            json={"email": "token_exposed@example.com", "password": "Password123"},
-        )
-        body = resp.json()
-        assert body.get("verification_token") is not None
-        assert len(body["verification_token"]) > 10
-
     def test_register_message_content(self, client: TestClient):
         resp = client.post(
             "/auth/register",
             json={"email": "msg_check@example.com", "password": "Password123"},
         )
-        assert "verify" in resp.json()["message"].lower()
-
-    def test_register_response_includes_verification_link(self, client: TestClient):
-        resp = client.post(
-            "/auth/register",
-            json={"email": "link_user@example.com", "password": "Password123"},
-        )
-        body = resp.json()
-        assert body.get("verification_link")
-        assert "/verify-email?token=" in body["verification_link"]
-
-    def test_register_message_when_email_sent(self, client: TestClient, monkeypatch: pytest.MonkeyPatch):
-        monkeypatch.setattr("app.api.routes.auth.send_verification_email", lambda *_args, **_kwargs: True)
-
-        resp = client.post(
-            "/auth/register",
-            json={"email": "sent_user@example.com", "password": "Password123"},
-        )
-        assert "email sent" in resp.json()["message"].lower()
+        assert "log in" in resp.json()["message"].lower()
 
     def test_register_email_is_normalised_to_lowercase(self, client: TestClient):
         """Upper-case email should be normalised and stored in lower-case."""
@@ -67,6 +39,18 @@ class TestRegisterSuccess:
             json={"email": "UPPERCASE@Example.COM", "password": "Password123"},
         )
         assert resp.status_code == 201
+
+    def test_register_then_login_works(self, client: TestClient):
+        """After registration, user can immediately log in."""
+        client.post(
+            "/auth/register",
+            json={"email": "reg_login@example.com", "password": "Password123"},
+        )
+        resp = client.post(
+            "/auth/login",
+            json={"email": "reg_login@example.com", "password": "Password123"},
+        )
+        assert resp.status_code == 200
 
 
 class TestRegisterDuplicateEmail:

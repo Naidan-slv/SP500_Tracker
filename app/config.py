@@ -12,8 +12,6 @@ class Settings:
     jwt_secret_key: str
     jwt_algorithm: str
     access_token_expire_minutes: int
-    email_verification_token_expire_hours: int
-    expose_verification_token: bool
     app_base_url: str
     frontend_base_url: str
     smtp_enabled: bool
@@ -33,8 +31,6 @@ settings = Settings(
     jwt_secret_key=os.getenv("JWT_SECRET_KEY", "dev-change-me-secret"),
     jwt_algorithm=os.getenv("JWT_ALGORITHM", "HS256"),
     access_token_expire_minutes=int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "60")),
-    email_verification_token_expire_hours=int(os.getenv("EMAIL_VERIFICATION_TOKEN_EXPIRE_HOURS", "24")),
-    expose_verification_token=os.getenv("EXPOSE_VERIFICATION_TOKEN", "true").lower() == "true",
     app_base_url=os.getenv("APP_BASE_URL", "http://localhost:8000"),
     frontend_base_url=os.getenv("FRONTEND_URL", "http://localhost:5174"),
     smtp_enabled=os.getenv("SMTP_ENABLED", "false").lower() == "true",
