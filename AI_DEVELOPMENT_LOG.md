@@ -681,3 +681,55 @@ This session added the two most visible "intelligence" features of the product: 
 	- `tests/watchlists/test_watchlists_endpoints.py`
 	- Result: `37 passed`
 - Frontend production build passed after changes (`npm run build`)
+
+---
+
+### Entry 014 — Stock Detail Quick Actions, Form Autocomplete, and Deterministic Company Name Resolution
+**Date:** 13 March 2026  
+**Commit(s):** `37b6691` (`feat(ux): quick-add actions, autocomplete, and company-name resolution`)
+
+#### What Was Done
+- Added stock-detail quick actions so logged-in users can add the current ticker directly to:
+	- a selected watchlist
+	- a selected portfolio (default add with quantity `1`)
+- Added autocomplete dropdown behavior to both add forms:
+	- `WatchlistsPage` add ticker/company input
+	- `PortfolioPage` add holding input
+	- Suggestions now appear on focus and filter by ticker or company text while typing
+- Extended backend responses to include `company_name` where users manage saved symbols:
+	- `GET /watchlists/{id}/items`
+	- `GET /portfolios/{id}/holdings`
+- Added deterministic company-name fallback map in `app/company_overrides.py` for the tracked 49-ticker universe
+- Integrated fallback usage across stock profile/search and user resource flows:
+	- `app/api/routes/stocks.py`
+	- `app/api/routes/watchlists.py`
+	- `app/api/routes/portfolios.py`
+- Added `scripts/backfill_company_names.py` to populate missing/ticker-only names in existing `stocks` rows
+
+#### What I Asked the AI
+- To make stock detail pages actionable (quick-add into watchlists/portfolios)
+- To make add forms behave like modern autocomplete inputs
+- To ensure company names are consistently available even when external provider responses are unreliable
+
+#### What the AI Produced
+- Full-stack implementation across backend contracts and frontend UX
+- New deterministic fallback source for company names (independent of provider volatility)
+- Backfill script for existing datasets so historical rows can be corrected without re-ingestion
+- Test updates to cover response-contract and behavior changes
+
+#### My Decisions and Overrides
+- Chose deterministic overrides for the coursework ticker universe to guarantee name availability
+- Kept provider calls as optional enhancement rather than primary dependency for name correctness
+- Preferred direct stock-detail quick actions to reduce navigation friction
+
+#### Verified Outcomes
+- Targeted backend tests passed after changes:
+	- `tests/stocks/test_stocks_endpoints.py`
+	- `tests/watchlists/test_watchlists_endpoints.py`
+	- `tests/portfolios/test_portfolios_endpoints.py`
+	- `tests/contracts/test_api_contracts.py`
+	- Result: `48 passed`
+- Frontend production build passed (`cd frontend && npm run build`)
+- Local backfill run completed:
+	- `49` stock rows updated
+	- unresolved local company names reduced to `0`
