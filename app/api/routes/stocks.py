@@ -915,6 +915,69 @@ async def get_stock_news(
     )
 
 
+def _db_range_days(data_range: LiveRange) -> int:
+    """Map LiveRange to the number of calendar days of history to fetch from the database."""
+    mapping = {
+        LiveRange.one_day: 5,       # recent ~5 trading days for "1d" view
+        LiveRange.five_days: 10,    # ~10 calendar days for "5d" view
+        LiveRange.one_month: 35,    # ~35 calendar days for "1mo" view
+    }
+    return mapping.get(data_range, 10)
+
+
+def _fetch_db_fallback_points(
+    ticker: str,
+    data_range: LiveRange,
+    db: Session,
+) -> list[StockLivePoint]:
+    """
+    Return stored historical OHLCV data as StockLivePoint objects.
+    Used as a guaranteed fallback when external live providers fail.
+    """
+    days = _db_range_days(data_range)
+    cutoff = date.today() - timedelta(days=days)
+
+    rows = (
+        db.execute(
+            select(StockPrice)
+            .where(StockPrice.ticker == ticker, StockPrice.date >= cutoff)
+            .order_by(StockPrice.date.asc())
+        )
+        .scalars()
+        .all()
+    )
+
+    if not rows:
+        # If no recent data, grab the last 30 rows regardless of date
+        rows = (
+            db.execute(
+                select(StockPrice)
+                .where(StockPrice.ticker == ticker)
+                .order_by(StockPrice.date.desc())
+                .limit(30)
+            )
+            .scalars()
+            .all()
+        )
+        rows = list(reversed(rows))
+
+    items: list[StockLivePoint] = []
+    for row in rows:
+        timestamp = datetime.combine(row.date, datetime.min.time(), tzinfo=timezone.utc)
+        items.append(
+            StockLivePoint(
+                timestamp=timestamp,
+                open=float(row.open) if row.open is not None else None,
+                high=float(row.high) if row.high is not None else None,
+                low=float(row.low) if row.low is not None else None,
+                close=float(row.close) if row.close is not None else None,
+                volume=int(row.volume) if row.volume is not None else None,
+            )
+        )
+
+    return items
+
+
 @router.get("/{ticker}/live", response_model=StockLiveResponse)
 async def get_stock_live_data(
     ticker: str,
@@ -979,9 +1042,23 @@ async def get_stock_live_data(
         elif yahoo_error:
             provider_errors.append(yahoo_error)
 
+    # Database fallback: return stored historical OHLCV data when live providers fail
+    if not items:
+        db_items = _fetch_db_fallback_points(
+            ticker=normalized_ticker,
+            data_range=data_range,
+            db=db,
+        )
+        if db_items:
+            provider = "database_history"
+            items = db_items
+            provider_errors.append(
+                "Live providers unavailable; showing stored historical daily data"
+            )
+
     if items:
         _live_cache_set(cache_key, provider, items)
-        provider_error = None
+        provider_error = "; ".join(provider_errors) if provider_errors else None
     else:
         stale_cache = _live_cache_get(cache_key, _LIVE_CACHE_STALE_SECONDS)
         if stale_cache:

@@ -372,5 +372,58 @@ class TestStockLive:
 
         assert body["range"] == "5d"
         assert body["interval"] == "15m"
-        assert body["provider_error"] == "Live market provider unavailable"
+        # Database fallback kicks in because AAPL has seeded price data
+        assert "Live market provider unavailable" in body["provider_error"]
+        assert body["provider"] == "database_history"
+        assert len(body["items"]) > 0
+
+    def test_live_falls_back_to_database_history(
+        self,
+        client: TestClient,
+        db_session: Session,
+        monkeypatch,
+    ):
+        """When all external providers fail, the endpoint returns stored DB data."""
+        stocks_routes._LIVE_CACHE.clear()
+        seed_stock_data(db_session)
+
+        monkeypatch.setattr(
+            stocks_routes, "_fetch_yahoo_live_points",
+            lambda *_a, **_kw: ([], "Yahoo unavailable"),
+        )
+        monkeypatch.setattr(
+            stocks_routes, "_fetch_finnhub_live_points",
+            lambda *_a, **_kw: ([], "Finnhub unavailable"),
+        )
+        monkeypatch.setattr(stocks_routes, "_can_use_finnhub_live", lambda: True)
+
+        resp = client.get("/stocks/AAPL/live?range=1d&interval=5m")
+        assert resp.status_code == 200
+        body = resp.json()
+
+        assert body["provider"] == "database_history"
+        assert body["total"] > 0
+        assert len(body["items"]) > 0
+        assert "showing stored historical daily data" in body["provider_error"]
+
+    def test_live_db_fallback_empty_for_no_prices(
+        self,
+        client: TestClient,
+        db_session: Session,
+        monkeypatch,
+    ):
+        """Stock with no price data returns empty items and provider errors."""
+        stocks_routes._LIVE_CACHE.clear()
+        seed_stock_data(db_session)
+
+        monkeypatch.setattr(
+            stocks_routes, "_fetch_yahoo_live_points",
+            lambda *_a, **_kw: ([], "Yahoo unavailable"),
+        )
+
+        resp = client.get("/stocks/EMPTY/live?range=1d&interval=5m")
+        assert resp.status_code == 200
+        body = resp.json()
+
         assert body["items"] == []
+        assert body["provider_error"] is not None

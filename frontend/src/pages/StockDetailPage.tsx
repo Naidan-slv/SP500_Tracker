@@ -394,6 +394,11 @@ export function StockDetailPage() {
                   Updated: {new Date(liveQuery.data.latest_timestamp).toLocaleString()}
                 </span>
               )}
+              {liveQuery.data?.provider && (
+                <span className="chip">
+                  Source: {liveQuery.data.provider === 'database_history' ? '📊 Stored History' : liveQuery.data.provider.replace('_', ' ')}
+                </span>
+              )}
             </div>
 
             {liveQuery.isPending ? (

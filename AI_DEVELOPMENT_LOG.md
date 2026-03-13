@@ -770,3 +770,119 @@ This session added the two most visible "intelligence" features of the product: 
 	- `pytest -q tests/stocks/test_stocks_endpoints.py`
 	- Result: `18 passed`
 - Changes pushed to `main` under commit `f617a08`
+
+---
+
+### Entry 016 — CRUD Completeness: PATCH Endpoints + Inline Edit UI
+**Date:** 13 March 2026  
+**Commit(s):** Part of iterative refinements pushed to `main`
+
+#### What Was Done
+- Added `PATCH /portfolios/{id}` and `PATCH /portfolios/{id}/holdings/{holding_id}` endpoints to complete full CRUD coverage across all user-owned resources
+- Added `PATCH /watchlists/{id}` endpoint for renaming watchlists
+- Implemented inline-edit UI in the React frontend:
+  - Editable portfolio name and description fields
+  - Editable holding quantity and average price with save/cancel controls
+  - Editable watchlist name with inline save
+- Updated Pydantic schemas (`PortfolioUpdate`, `HoldingUpdate`, `WatchlistUpdate`) and SQLAlchemy model operations
+- Extended test suites to cover update (PATCH) operations for portfolios, holdings, and watchlists
+
+#### What I Asked the AI
+- To add PATCH endpoints so that every user resource supports all four CRUD operations (Create, Read, Update, Delete)
+- To build inline-edit components in the frontend so users can modify data without navigating away
+
+#### What the AI Produced
+- Backend route handlers with ownership validation, partial-update logic, and appropriate 404/403 responses
+- Frontend inline-edit components with optimistic UI updates via TanStack Query mutation/invalidation
+- Updated test cases covering happy-path and error scenarios for PATCH operations
+
+#### My Decisions and Overrides
+- Chose inline editing over modal-based editing for a smoother UX
+- Required ownership checks on all PATCH routes to prevent cross-user modification
+- Ensured PATCH uses partial updates (only supplied fields are changed) rather than full replacement
+
+#### Verified Outcomes
+- Full test suite passed after changes (125 tests at this point)
+- Frontend production build passed (`cd frontend && npm run build`)
+
+---
+
+### Entry 017 — News Filter Fix, Caching Architecture & Documentation Updates
+**Date:** 13 March 2026  
+**Commit(s):** Part of iterative refinements pushed to `main`
+
+#### What Was Done
+- Fixed news timeframe filtering by switching from non-functional URL date parameters to Google News RSS `when:Xd` operator
+- Implemented backend in-memory news cache (`_NEWS_CACHE`) with 5-minute TTL to reduce redundant external calls
+- Updated `GET /stocks/{ticker}/news` to accept `days` query parameter (1, 7, 30) mapped to Google RSS `when:` syntax
+- Added caching architecture documentation to `README.md` explaining both backend (in-memory 45s/5min) and frontend (TanStack Query 2-10min staleTime) caching layers
+- Updated HomePage copy to better reflect the application's purpose and features
+
+#### What I Asked the AI
+- To fix news filtering which was returning stale/incorrect results regardless of selected timeframe
+- To add caching for news requests similar to the live data cache
+- To document the caching architecture in the README
+
+#### What the AI Produced
+- Corrected Google News RSS integration using the `when:Xd` date operator
+- News cache implementation with per-ticker+timeframe cache keys and TTL expiry
+- README section documenting the full caching strategy across both layers
+- Updated HomePage component with improved marketing copy
+
+#### My Decisions and Overrides
+- Chose `when:Xd` operator over date-range URL parameters after researching Google News RSS behaviour
+- Set news cache TTL to 5 minutes (longer than live data's 45s) since news updates less frequently
+- Kept caching in-memory rather than introducing Redis, appropriate for coursework scale
+
+#### Verified Outcomes
+- News endpoint returns correctly time-filtered results for 1d, 7d, and 30d windows
+- Full test suite passed
+- Frontend production build passed
+
+---
+
+### Entry 018 — Email Verification Removal
+**Date:** 13 March 2026  
+**Commit(s):** `f666d1e` (`refactor(auth): remove email verification — simplify to register + login`), `c9c248b` (`chore: clean up remaining email-verification remnants`)
+
+#### What Was Done
+- Removed the entire email verification feature which was non-functional in the deployed environment (no SMTP relay configured)
+- **Backend changes:**
+  - Removed `POST /auth/verify-email` and `POST /auth/resend-verification` endpoints from `app/api/routes/auth.py`
+  - Simplified `register_user()` in `app/auth/service.py` to return `User` directly (no verification token), setting `is_email_verified=True` on registration
+  - Removed `VerifyEmailRequest` and `ResendVerificationRequest` schemas from `app/auth/schemas.py`
+  - Deleted `app/auth/email.py` (SMTP helper module)
+  - Removed `EmailVerificationToken` model from `app/database/models.py`
+  - Cleaned SMTP-related config fields from `app/config.py`
+  - Removed SMTP/verification environment variables from `render.yaml`
+- **Frontend changes:**
+  - Deleted `frontend/src/pages/VerifyEmailPage.tsx`
+  - Removed VerifyEmail route from `frontend/src/App.tsx`
+  - Removed `verifyEmail` and `resendVerification` functions from `frontend/src/auth/AuthContext.tsx`
+  - Removed `verifyEmailToken` and `resendVerificationEmail` from `frontend/src/lib/api.ts`
+  - Simplified `AuthModal.tsx` to only show Login and Register tabs
+- **Test changes:**
+  - Deleted `tests/auth/test_verify_email.py` and `tests/auth/test_resend_verification.py`
+  - Simplified `make_verified_user` fixture in `tests/conftest.py` (register → login, no verify step)
+  - Removed unverified-user test cases from `tests/auth/test_login.py`
+- **Documentation:** Updated README to remove references to email verification flow
+
+#### What I Asked the AI
+- To completely remove the email verification feature since it was broken in production (no SMTP configured on Render) and was adding unnecessary complexity
+- To ensure no remnants were left across backend, frontend, tests, config, or documentation
+
+#### What the AI Produced
+- Systematic removal across all layers (routes, service, schemas, models, config, frontend pages/components/API calls, tests, deployment config, docs)
+- Two clean commits: first for the main removal, second for catching remaining remnants
+- Simplified auth flow: register immediately grants full access
+
+#### My Decisions and Overrides
+- Decided to remove verification entirely rather than fix SMTP integration, since email verification adds complexity beyond the coursework requirements
+- Chose to keep the `is_email_verified` database column set to `True` by default for forward compatibility
+- Prioritised a clean, working auth flow over a half-implemented feature
+
+#### Verified Outcomes
+- Full test suite passed: `125 passed` (down from 142 after removing verification-specific tests)
+- Frontend production build passed (`cd frontend && npm run build`)
+- Both commits pushed to `main` and deployed
+

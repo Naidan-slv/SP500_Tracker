@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 
 import { useAuth } from '../auth/AuthContext'
+import { PortfolioPieChart } from '../components/PortfolioPieChart'
 import {
   addPortfolioHolding,
   createPortfolio,
@@ -366,6 +367,20 @@ export function PortfolioPage() {
                 <MiniStat label="Total Units" value={portfolioStats.totalUnits.toFixed(2)} />
                 <MiniStat label="Estimated Cost" value={`$${portfolioStats.estimatedCost.toFixed(2)}`} />
                 <MiniStat label="Selected" value={selectedPortfolio.name} />
+              </div>
+
+              <div className="card">
+                <div className="panel-header">
+                  <div>
+                    <h3 className="section-title">Allocation</h3>
+                    <div className="muted">
+                      {holdingsQuery.data?.items.length
+                        ? 'Portfolio weight by estimated cost. Hover segments for detail.'
+                        : 'Add holdings to view your portfolio allocation.'}
+                    </div>
+                  </div>
+                </div>
+                <PortfolioPieChart holdings={holdingsQuery.data?.items ?? []} />
               </div>
 
               <div className="card table-shell table-wrap">
