@@ -2,7 +2,7 @@
 
 Full-stack stock tracking platform for COMP3011 Web Services coursework.
 
-**Live API:** https://sp500-tracker.onrender.com  
+**Live API:** https://sp500-tracker-frontend.onrender.com  
 **Interactive docs:** https://sp500-tracker.onrender.com/docs
 
 > ⚠️ The backend is hosted on Render's free tier — the first request after inactivity may take ~30s to cold-start.
