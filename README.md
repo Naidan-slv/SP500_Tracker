@@ -13,9 +13,8 @@ Full-stack stock tracking platform for COMP3011 Web Services coursework.
 
 | Document | Location |
 |----------|----------|
-| API Documentation | [`docs/API_DOCUMENTATION.md`](docs/API_DOCUMENTATION.md) |
-| Technical Report | [`docs/TECHNICAL_REPORT.md`](docs/TECHNICAL_REPORT.md) |
-| Presentation Slides | [`docs/PRESENTATION_SLIDES.md`](docs/PRESENTATION_SLIDES.md) |
+| API Documentation (PDF) | [`docs/SP500_Tracker_API_Documentation.pdf`](docs/SP500_Tracker_API_Documentation.pdf) |
+| API Documentation (Markdown) | [`docs/API_DOCUMENTATION.md`](docs/API_DOCUMENTATION.md) |
 | AI Development Log | [`AI_DEVELOPMENT_LOG.md`](AI_DEVELOPMENT_LOG.md) |
 
 ---
@@ -173,12 +172,12 @@ Both tiers work together: the backend prevents redundant external calls while th
 
 ```bash
 pytest tests/
-# 125 tests, in-memory SQLite, no network required
+# 127 tests, in-memory SQLite, no network required
 ```
 
 Latest verified local checks:
 
-- `pytest -q` → `125 passed in 4.49s`
+- `pytest -q` → `127 passed in ~4s`
 - `cd frontend && npm run build` → production build succeeded
 
 ---
@@ -211,3 +210,17 @@ For the frontend, set `VITE_API_BASE_URL=https://sp500-tracker.onrender.com` whe
 - **Recharts** — historical and live chart rendering
 - **pytest** — backend test suite (`127` tests)
 - **Render** — backend deployment platform
+
+---
+
+## Data Source
+
+Historical OHLCV data sourced from:
+
+> Shahrukh, I. (2025) *Top 50 S&P 500 Companies Dataset*. Available at: https://www.kaggle.com/datasets/ibrahimshahrukh/top-50-companies-dataset (Accessed: 9 March 2025).
+
+---
+
+## Repository
+
+Salvador, N. (2025) *SP500 Tracker*. Available at: https://github.com/Naidan-slv/SP500_Tracker (Accessed: 13 March 2025).

@@ -974,3 +974,14 @@ GET /stocks?limit=20&offset=40
 | 23 | DELETE | `/portfolios/{id}/holdings/{ticker}` | 🔒 | Remove a holding |
 
 **Total: 23 endpoints** across 4 resource groups.
+
+---
+
+## Data Source
+
+Historical OHLCV stock data sourced from:
+
+> Shahrukh, I. (2025) *Top 50 S&P 500 Companies Dataset*. Available at: https://www.kaggle.com/datasets/ibrahimshahrukh/top-50-companies-dataset (Accessed: 9 March 2025).
+
+Live and intraday data provided by [Finnhub](https://finnhub.io/) and [Yahoo Finance](https://finance.yahoo.com/).  
+News articles aggregated via [Google News RSS](https://news.google.com/).

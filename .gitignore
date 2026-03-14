@@ -209,3 +209,9 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# Submission files (uploaded separately to Minerva)
+docs/SP500_Tracker_Technical_Report.pdf
+docs/SP500_Tracker_Presentation.pptx
+docs/~$*.pptx
+.DS_Store
